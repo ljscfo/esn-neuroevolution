@@ -24,6 +24,7 @@ class ESN(rnn_cell_impl.RNNCell):
         self.sparsity = sparsity
         self.sparseness = sparseness
         
+        
         self.weights_in = tf.get_variable("InputWeights", \
                                           initializer=self.init_weights_in(self.weights_std),\
                                           trainable=False)
@@ -37,12 +38,13 @@ class ESN(rnn_cell_impl.RNNCell):
         self.bias = tf.get_variable("Bias", \
                                     initializer=self.init_bias(self.weights_std),\
                                     trainable=False)
+            # 'bias' is: [1, res_units]
         
         self.spectral_radius = tf.get_variable("SpectralRadius",\
                                                initializer=self.get_spectral_radius(self.weights_res),\
                                                trainable=False)
         
-        if self.sparseness==True:
+        if self.sparseness:
             self.weights_res = self.sparse_weights_res(self.weights_res)
         
     @property
@@ -90,10 +92,10 @@ class ESN(rnn_cell_impl.RNNCell):
             var: variance of the normal distr. used to draw the weight values from
             
         Returns:
-            Weight matrix of shape [res_units,]
+            Weight matrix of shape [1, res_units]
         """
         
-        return tf.random.normal([self.res_units], stddev=var)
+        return tf.random.normal([1, self.res_units], stddev=var)
     
     def get_spectral_radius(self, W_res):
         
@@ -148,7 +150,7 @@ class ESN(rnn_cell_impl.RNNCell):
         """
         
         sparse_mask = tf.less_equal(tf.random_uniform(W_res.shape, minval=0, maxval=1),\
-                                    self.sparseness)
+                                    self.sparsity)
         sparse_mask = tf.cast(sparse_mask, dtype=W_res.dtype)
         
         W_res = tf.multiply(W_res, sparse_mask)
@@ -166,13 +168,15 @@ class ESN(rnn_cell_impl.RNNCell):
         Returns:
           A tuple (output, new_state), computed as:
           output = new_state = (1 - alpha)*state + alpha*activation(weights_in*esn_input 
-          + weights_res*state + bias)`.
+          + weights_res*state + bias).
           
         """
         
-        new_state = (1-self.alpha)*state + self.alpha*self.activation(\
-                    tf.matmul(esn_input, self.weights_in)\
-                    +tf.matmul(state, self.weights_res) + self.bias)
+        
+        new_state = (1-self.alpha)*state + \
+                    self.alpha*self.activation(tf.matmul(tf.ones([1,1]), self.bias) + \
+                                               tf.matmul(esn_input, self.weights_in) + \
+                                               tf.matmul(state, self.weights_res))
         
         output = new_state
         
