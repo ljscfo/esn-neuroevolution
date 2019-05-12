@@ -23,29 +23,35 @@ class ESN(rnn_cell_impl.RNNCell):
         self.weights_std = weights_std
         self.sparsity = sparsity
         self.sparseness = sparseness
+ 
+        tf.set_random_seed(1234)
         
-        
-        self.weights_in = tf.get_variable("InputWeights", \
+        with tf.variable_scope('initializers', reuse=tf.AUTO_REUSE):
+            
+            self.weights_in = tf.get_variable("InputWeights", \
                                           initializer=self.init_weights_in(self.weights_std),\
                                           trainable=False)
             # 'weights_in' is: [in_units x res_units]
-        
-        self.weights_res = self.normalize_weights_res(tf.get_variable("ReservoirWeights", \
+            
+            self.weights_res = self.normalize_weights_res(tf.get_variable("ReservoirWeights", \
                                            initializer=self.init_weights_res(self.weights_std),\
                                            trainable=False))
             # 'weights_res' is: [res_units x res_units]
             
-        self.bias = tf.get_variable("Bias", \
-                                    initializer=self.init_bias(self.weights_std),\
-                                    trainable=False)
+            self.bias = tf.get_variable("Bias", \
+                                        initializer=self.init_bias(self.weights_std),\
+                                        trainable=False)
             # 'bias' is: [1, res_units]
-        
-        self.spectral_radius = tf.get_variable("SpectralRadius",\
-                                               initializer=self.get_spectral_radius(self.weights_res),\
-                                               trainable=False)
-        
-        if self.sparseness:
-            self.weights_res = self.sparse_weights_res(self.weights_res)
+
+            self.spectral_radius = tf.get_variable("SpectralRadius",\
+                                                   initializer=self.get_spectral_radius(self.weights_res),\
+                                                   trainable=False)
+
+            if self.sparseness:
+                self.sparse_mask = tf.get_variable("SparseMatrix",\
+                                                   initializer=self.init_sparse_matrix(self.weights_res), \
+                                                   trainable=False)
+                self.weights_res = tf.multiply(self.weights_res, self.sparse_mask)
         
     @property
     def output_size(self):
@@ -97,6 +103,23 @@ class ESN(rnn_cell_impl.RNNCell):
         
         return tf.random.normal([1, self.res_units], stddev=var)
     
+    def init_sparse_matrix(self, W_res):
+        
+        """
+        Initializes the bias weight matrix.
+        
+        Args:
+            var: variance of the normal distr. used to draw the weight values from
+            
+        Returns:
+            Weight matrix of shape [1, res_units]
+        """
+        
+        sparse_mask = tf.less_equal(tf.random_uniform(W_res.shape, minval=0, maxval=1),\
+                                    self.sparsity)
+        
+        return tf.cast(sparse_mask, dtype=W_res.dtype)
+    
     def get_spectral_radius(self, W_res):
         
         """
@@ -135,28 +158,7 @@ class ESN(rnn_cell_impl.RNNCell):
 
         return W_res
     
-    def sparse_weights_res(self, W_res):
-        
-        """
-        Computes sparsed reservoir matrix with sparsity defined by __init__.
-        Only called if sparseness == True
-        
-        Args:
-            W_res: matrix of shape [res_units, res_units] with float values,
-            reservoir weight matrix
-            
-        Returns:
-            Float entries, Sparsed reservoir matrix with shape [res_units, res_units]
-        """
-        
-        sparse_mask = tf.less_equal(tf.random_uniform(W_res.shape, minval=0, maxval=1),\
-                                    self.sparsity)
-        sparse_mask = tf.cast(sparse_mask, dtype=W_res.dtype)
-        
-        W_res = tf.multiply(W_res, sparse_mask)
-
-        return W_res
-        
+    
     def __call__(self, esn_input, state):
         
         """ Runs one feedforward step of ESN.
