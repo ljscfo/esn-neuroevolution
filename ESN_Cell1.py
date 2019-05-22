@@ -4,7 +4,7 @@ from tensorflow.python.ops import rnn_cell_impl
 
 class ESN(rnn_cell_impl.RNNCell):
     
-    def __init__(self, ESN_arch, name, activation=tf.math.tanh, leak_rate=0.0, weights_std=0.1,\
+    def __init__(self, ESN_arch, activation=tf.math.tanh, leak_rate=0.0, weights_std=0.1,\
                  sparsity=0.1, sparseness=True):
         """
         Args:
@@ -23,37 +23,35 @@ class ESN(rnn_cell_impl.RNNCell):
         self.weights_std = tf.cast(weights_std, dtype=tf.float64)
         self.sparsity = tf.cast(sparsity, dtype=tf.float64)
         self.sparseness = sparseness
-        self.name = name
  
         tf.set_random_seed(1234)
+    
         
-        with tf.variable_scope('initializers', reuse=tf.AUTO_REUSE) as self.name:
-            
-            self.weights_in = tf.get_variable("InputWeights", \
-                                          initializer=self.init_weights_in(self.weights_std),\
-                                          trainable=False, dtype=tf.float64)
-            # 'weights_in' is: [in_units x res_units]
-            
-            self.weights_res = self.normalize_weights_res(tf.get_variable("ReservoirWeights", \
-                                           initializer=self.init_weights_res(self.weights_std),\
-                                           trainable=False, dtype=tf.float64))
-            # 'weights_res' is: [res_units x res_units]
-            
-            self.bias = tf.get_variable("Bias", \
-                                        initializer=self.init_bias(self.weights_std),\
-                                        trainable=False, dtype=tf.float64)
-            # 'bias' is: [1, res_units]
-
-            self.spectral_radius = tf.get_variable("SpectralRadius",\
-                                                   initializer=self.get_spectral_radius(self.weights_res),\
-                                                   trainable=False, dtype=tf.float64)
-
-            if self.sparseness:
-                self.sparse_mask = tf.get_variable("SparseMatrix",\
-                                                   initializer=self.init_sparse_matrix(self.weights_res), \
-                                                   trainable=False, dtype=tf.float64)
-                self.weights_res = tf.multiply(self.weights_res, self.sparse_mask)
+        self.weights_in = tf.get_variable("InputWeights", \
+                                      initializer=self.init_weights_in(self.weights_std),\
+                                      trainable=False, dtype=tf.float64)
+        # 'weights_in' is: [in_units x res_units]
         
+        self.weights_res = self.normalize_weights_res(tf.get_variable("ReservoirWeights", \
+                                       initializer=self.init_weights_res(self.weights_std),\
+                                       trainable=False, dtype=tf.float64))
+        # 'weights_res' is: [res_units x res_units]
+        
+        self.bias = tf.get_variable("Bias", \
+                                    initializer=self.init_bias(self.weights_std),\
+                                    trainable=False, dtype=tf.float64)
+        # 'bias' is: [1, res_units]
+
+        self.spectral_radius = tf.get_variable("SpectralRadius",\
+                                               initializer=self.get_spectral_radius(self.weights_res),\
+                                               trainable=False, dtype=tf.float64)
+
+        if self.sparseness:
+            self.sparse_mask = tf.get_variable("SparseMatrix",\
+                                               initializer=self.init_sparse_matrix(self.weights_res), \
+                                               trainable=False, dtype=tf.float64)
+            self.weights_res = tf.multiply(self.weights_res, self.sparse_mask)
+    
     @property
     def output_size(self):
         return self.res_units
