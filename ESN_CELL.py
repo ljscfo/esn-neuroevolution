@@ -3,7 +3,7 @@ import pandas as pd
 
 class ESN():
     
-    def __init__(self, ESN_arch, activation=np.tanh, leak_rate=0.0, weights_std=0.1, sparsity=0.1):
+    def __init__(self, ESN_arch, activation=np.tanh, leak_rate=0.0, weights_std=0.1, sparsity=0.1, weights_external = None):
         
         """
         Args:
@@ -26,33 +26,41 @@ class ESN():
         # All instantiations of the class have the same random seed
         # and hence the same weight initializations
         #np.random.seed(123)
+
+        if weights_external != None:
+            #Weights are given and don't need to be initialized randomly
+
+            self.weights_in = weights_external["weights_in"]
+            self.weights_res = weights_external["weights_res"]
+            self.bias = weights_external["weights_bias"]
+
+        else:
+            # Initialize 'W_in'
+            self.weights_in = np.random.normal(size=[self.in_units, self.res_units], scale=self.weights_std)
+            # dims: [in_units, res_units]
+
+            # Initialize 'W_res'
+            self.weights_res = np.random.normal(size=[self.res_units, self.res_units], scale=self.weights_std)
+            # dims: [res_units, res_units]
+
+            # Initialize 'bias'
+            self.bias = np.random.normal(size=[1, self.res_units], scale=self.weights_std)
+            # dims: [1, res_units]
             
-        # Initialize 'W_in'
-        self.weights_in = np.random.normal(size=[self.in_units, self.res_units], scale=self.weights_std)
-        # dims: [in_units, res_units]
-
-        # Initialize 'W_res'
-        self.weights_res = np.random.normal(size=[self.res_units, self.res_units], scale=self.weights_std)
-        # dims: [res_units, res_units]
-
-        # Initialize 'bias'
-        self.bias = np.random.normal(size=[1, self.res_units], scale=self.weights_std)
-        # dims: [1, res_units]
-        
-        # Compute sparse_mask
-        self.sparse_mask = np.float64(np.less_equal(np.random.uniform(size=[self.res_units, self.res_units]), \
-                                                    self.sparsity))
-        # dims: [res_units, res_units]
-        
-        # W_res is transformed for making it sparse
-        self.weights_res = np.multiply(self.weights_res, self.sparse_mask)
+            # Compute sparse_mask
+            self.sparse_mask = np.float64(np.less_equal(np.random.uniform(size=[self.res_units, self.res_units]), \
+                                                        self.sparsity))
+            # dims: [res_units, res_units]
+            
+            # W_res is transformed for making it sparse
+            self.weights_res = np.multiply(self.weights_res, self.sparse_mask)
 
         # Compute Spectral Radius
         self.spectral_radius = np.abs(np.linalg.eigvals(self.weights_res)).max()
 
         # W_res is normalized wrt spectral_radius
         self.weights_res = np.multiply(self.weights_res, 1/(self.spectral_radius))
-     
+         
     
     
     def res_states(self, inputs, init_state):
