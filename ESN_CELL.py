@@ -64,6 +64,7 @@ class ESN():
             self.weights_res = np.multiply(self.weights_res, self.sparse_mask)
 
         # Compute Spectral Radius
+        #print(np.linalg.eigvals(self.weights_res))
         self.spectral_radius = np.abs(np.linalg.eigvals(self.weights_res)).max()
 
         # W_res is normalized wrt spectral_radius
@@ -92,14 +93,20 @@ class ESN():
         len_in = len(inputs[0])
 
         for n in range(len_in):
-
+            """
+            print(res_state.shape,self.weights_res.shape)
+            print(np.matmul(res_state, self.weights_res).shape)
+            print("some",self.weights_in.shape,self.bias.shape)
+            """
             new_state = self.activation(np.multiply(self.weights_in, inputs[0][n]) + \
                                         np.matmul(res_state, self.weights_res) + \
                                         self.bias)
+            #print("New",new_state.shape)
 
             res_state = np.multiply(1-self.leak_rate, res_state) + np.multiply(self.leak_rate, new_state)
             res_states.append(res_state)
 
+            #print(res_state.shape,self.weights_out.shape)
             #TODO: Or output before leak?, different activiation function for output?, how to include activation into ridge
             output = sum(np.matmul(res_state,self.weights_out))
             outputs.append(output)
@@ -147,7 +154,6 @@ class ESN():
         len_in = len(inputs[0])
 
         for n in range(len_in):
-
             new_state = self.activation(np.multiply(self.weights_in, inputs[0][n]) + \
                                         np.matmul(res_state, self.weights_res) + \
                                         self.bias)
