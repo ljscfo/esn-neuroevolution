@@ -1,4 +1,16 @@
 
+"""
+Evolve Echo State Networks (ESNs) using NEAT neuroevolution algorithm
+
+ESN code is implemented in ESN_CELL.py and gets instanciated in Testing_ESN.py
+  Task for evaluating performance of ESN is timeseries prediction using mackey glass equation
+
+NEAT is used to evolve reservoir nodes and connections which are normally just random
+The readout/output weights of ESN are trained in ESN_CELL.py each time Network gets changed by NEAT
+
+Top level parameters for ESN and NEAT are defined in init() method
+"""
+
 import sys, os
 import random
 import numpy as np
@@ -6,42 +18,17 @@ import math
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from functools import partial
+from ddeint import ddeint
 
 sys.path.append(os.path.join(os.path.split(__file__)[0],'..','..'))
 from peas.methods.neat import NEATPopulation, NEATGenotype
 from peas.networks.rnn import NeuralNetwork
 
-
-#from pylab import *
-#import pandas as pd
-#import seaborn as sns
-
+from Testing_ESN import *
 from ESN_CELL import *
-from ddeint import ddeint
 
 
-
-"""
-in esn:
- get_network?
- set_network
-
-  evaluate_network(network)
-   return fitness
-"""
-
-"""
-def init_neat():
-    init_pop()
-    pass
-
-def run():
-    train_neat_one_step(pop)
-    networks = getnetworks(pop)
-    for network in networks:
-        esn.evaluate(network)
-"""
-
+# Testing Neat without ESN code on mackey_glass timeseries, partly copied from neat examples
 class ESNTask_internal(object):
 
     mg = np.load('mackey_glass_t17.npy')
@@ -92,102 +79,83 @@ class ESNTask_internal(object):
         score = self.evaluate(network)
         return score['fitness'] > 0.9
 
+#evaluate a network evolved by neat using ESN with mackey_glass
 class ESNTask_external(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, ESN_arch):
+        self.ESN_arch = ESN_arch
 
     def evaluate(self, network, verbose=False):
-        #Still needs a lot of work
-        matrices = get_weight_matrices()
+        matrices = self.get_weight_matrices(network)
 
-        res_units = 100
-        in_units = 1
-        ESN_arch = [in_units, res_units]
+        #set up ESN with weight matrices from NEAT
+        esn_instance = test_esn(self.ESN_arch, matrices)
+        #Run task in ESN and get performance (mean squared error)
+        mse = esn_instance.calc_esn()
 
-        leakrates = [0.1, 0.25, 0.5, 0.75, 0.9]
-        activation = np.tanh
-        weights_variance = 0.1
-        sparsity = 0.1
+        score = 1.0/mse
 
-        esn = ESN(ESN_arch, activation, leakrates[0], weights_variance, sparsity, matrices)
-
-        #TODO: don't do that step for every evaluation but once
-        model = lambda X,t,beta,n,tau,gamma : beta*((X(t-tau))/(1 + X(t-tau)**n)) - gamma*X(t)
-
-        X_0 = lambda t:0.5 # history before t=0
-
-        X_ts = {}
-
-        bifurcation_para = [10]
-
-        for i, n in enumerate(bifurcation_para):
-            t = np.linspace(0,30,3000)
-            X_t = ddeint(model, X_0, t, fargs=(2, n, 2, 1)) #beta=2, n=n, tau=2, gamma=1
-            X_ts[n] = X_t
-
-            #length of input series
-        len_in = len(X_ts[10])
-
-        esn_input = X_ts[10].reshape([in_units, len_in]) # of shape: [in_units, len_in]
-
-        print("ESN_inp_type",type(esn_input))
-        print(esn_input.shape)
-
-        esn.res_states(esn_input, np.zeros((1,res_units)))
-
-        #TODO: Continue working here
-
-        graph = [list(),list()]
-
-        #print("E",rmse)
-        score = 1/(1+np.sqrt(rmse / len(pairs[1000:2000])))
-        #print("S",score)
-        return {'fitness':score,'graph':graph}
+        return {'fitness':score}
 
     def solve(self, network):
         score = self.evaluate(network)
         return score['fitness'] > 0.9
 
+    def get_weight_matrices(self, network):
 
-def get_weight_matrices(network):
+        matrix = network.get_network_data()[0]
 
-    matrix = network.get_network_data()[0]
+        #TODO: Check if bias is node or not (default False, but property of NEATGenotype)
+        bias = 1
 
-    #TODO: Check if bias is node or not (default False, but property of NEATGenotype)
-    bias = 1
+        nodes = network.node_genes   #: [] Tuples of (fforder, type, bias, responsraininge, layer)
+        self.ESN_arch=(self.ESN_arch[0], len(nodes)-self.ESN_arch[0]-self.ESN_arch[2],self.ESN_arch[2])
+        conns = network.conn_genes    #: {} Tuples of (innov, from, to, weight, enabled) conn[(i, j)]
 
-    nodes = network.node_genes   #: [] Tuples of (fforder, type, bias, responsraininge, layer)
-    conns = network.conn_genes    #: {} Tuples of (innov, from, to, weight, enabled) conn[(i, j)]
+        output_layer = np.int64(0) #output layer is supposed to be max value for int64, but it's checked just in case
 
-    output_layer = np.int64(0) #output layer is max value for int64, but it's checked just in case
+        nodes_per_layer = defaultdict(lambda: 0)
+        node_layer = np.zeros(len(nodes) + bias)
 
-    nodes_per_layer = defaultdict(lambda: 0)
-    node_layer = np.zeros(len(nodes) + bias)
+        for i, node in enumerate(nodes):
+            layer = node[4]
+            nodes_per_layer[layer] += 1
 
-    for i, node in enumerate(nodes):
-        layer = node[4]
-        nodes_per_layer[layer] += 1
-        # Output layer has highest layer number
-        if layer > output_layer:
-            output_layer = layer
+            # Output layer has highest layer number
+            if layer > output_layer:
+                output_layer = layer
 
-    node_layer[0] = 1
-    for i, node in enumerate(nodes):
-        layer = node[4]
-        if layer == 0:
-            node_layer[i+bias] = 0
-        elif layer == output_layer:
-            node_layer[i+bias] = 3
-        else:
-            node_layer[i+bias] = 2
+        #bias node/layer
+        node_layer[0] = 1
 
-    weights_in = matrix[:,node_layer == 0][node_layer == 2,:]
-    weights_bias = matrix[:,node_layer == 1][1:,:]
-    weights_reservoir = matrix[:,node_layer == 2][node_layer == 2,:]
-    weights_out = matrix[:,node_layer == 2][node_layer == 3,:]
+        for i, node in enumerate(nodes):
+            layer = node[4]
+            if layer == 0:
+                node_layer[i+bias] = 0 #Input layer
+            elif layer == output_layer:
+                node_layer[i+bias] = 3 #Output layer
+            else:
+                node_layer[i+bias] = 2 #reservoir layer
 
-    return weights_in, weights_bias, weights_reservoir, weights_out
+        weights_in = np.rot90(matrix[:,node_layer == 0][node_layer == 2,:])
+        weights_bias = np.rot90(matrix[:,node_layer == 1][node_layer == 2,:])
+        weights_reservoir = np.rot90(matrix[:,node_layer == 2][node_layer == 2,:])
+        weights_out = np.rot90(matrix[:,node_layer == 2][node_layer == 3,:])
+
+        #Pack matrices
+        matrices = weights_in, weights_bias, weights_reservoir, weights_out
+
+        for matrix_i, matrix in enumerate(matrices):
+            #in earlier version additional output node appeared
+            assert not (matrix_i == 3 and matrix.shape[1] > self.ESN_arch[2])
+
+            #Replace NaNs with 0s
+            for y_i, y in enumerate(matrix):
+                for x_i, x in enumerate(y):
+                    if x!=x: #if x is NaN
+                        matrices[matrix_i][y_i,x_i] = 0
+
+        return matrices
 
 def random_topology(n_nodes, sparsity):
     #just create tuples of kind (source_node, target_node) in a complicated way
@@ -205,30 +173,48 @@ def random_topology(n_nodes, sparsity):
 
     return topology
 
+#Initialize Neat and ESN
 def init():
-    topology = random_topology(10, 0.5)
+    #Defining node amounts for ESN
+    res_units = 50
+    in_units = 1
+    out_units = 1
+    ESN_arch = [in_units, res_units, out_units]
+    sparsity = 0.2
+
+    neat_iterations = 50
+    neat_population_size = 50
+
+    topology = random_topology(res_units+in_units+out_units, sparsity = sparsity)
     genotype = lambda: NEATGenotype(inputs=1, outputs=1, topology = topology, types=['tanh'], feedforward = False,prob_add_node=0.2,prob_add_conn=0.5)
 
     # Create a population
-    pop = NEATPopulation(genotype, popsize=50)
+    pop = NEATPopulation(genotype, popsize = neat_population_size)
 
     # Create a task
-    task = ESNTask_internal()
-    return task, pop
+    task = ESNTask_external(ESN_arch)
+    #task = ESNTask_internal() #instead for just testing NEAT
 
+    return task, pop, neat_iterations
 
-def run(task, population):
-    for i in range(1):
-        # Run the evolution, tell it to use the task as an evaluator
-        pop.epoch(generations=10, evaluator=task, solution=task)
+#Called after every neat generation, just for saving each generation's fitness
+def epoch_callback(self):
+    global Scores
+    Scores.append(self.champions[-1].stats['fitness'])
 
-    print(get_weight_matrices(pop.champions[-1]))
+def run_neat(task, population, iterations):
+    global Scores
+    Scores = []
 
-    final = task.evaluate(pop.champions[-1])
+    pop.epoch(generations=iterations, evaluator=task, solution=task, callback=epoch_callback)
 
-    plt.plot(final['graph'][0][:400],label = "Original")
-    plt.plot(final['graph'][1][:400], label = "predicted")
+    #final = pop.champions[-1]
+
+    plt.plot(Scores, label = "Fitness")
+    plt.xlabel("Iteration")
+    plt.ylabel("Fitness")
     plt.show()
 
-task, pop = init()
-run(task, pop)
+
+task, pop, neat_iterations = init()
+run_neat(task, pop, neat_iterations)
