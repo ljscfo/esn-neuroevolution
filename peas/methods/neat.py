@@ -140,10 +140,20 @@ class NEATGenotype(object):
                 raise Exception("Topology (%d) contains fewer than inputs (%d) + outputs (%d) nodes." %
                     (maxnode, inputs, outputs))
 
+            max_layer = sys.maxsize if (self.max_depth is None) else (self.max_depth - 1)
+
             for i in range(maxnode+1):
                 # Assign layer 0 to input nodes, otherwise just an incrementing number,
                 # i.e. each node is on its own layer.
-                layer = 0 if i < inputs else i + 1
+                # Added: set output nodes to max_layer
+
+                if (i < inputs):
+                    layer = 0
+                elif (i > maxnode - outputs):
+                    layer = max_layer
+                else:
+                    layer = i+1
+                    
                 self.node_genes.append( [i * 1024.0, random.choice(self.types), 0.0, self.response_default, layer] )
             innov = 0
             for fr, to in topology:
@@ -542,7 +552,7 @@ class NEATPopulation(SimplePopulation):
         # Compute offspring amount
         total_average = sum(specie.avg_fitness for specie in self.species)
         for specie in self.species:
-            specie.offspring = int(round(self.popsize * specie.avg_fitness / total_average))
+            specie.offspring = int(round(float(self.popsize * specie.avg_fitness / total_average)))
 
         # Remove species without offspring
         self.species = [s for s in self.species if s.offspring > 0]
