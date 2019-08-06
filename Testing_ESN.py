@@ -61,11 +61,11 @@ class test_esn:
     #returns mean squared error of trained readout in comparison to desired output
     def calc_esn(self):
 
-        _, res_state, outputs1 = self.esn.res_states(self.input_pre, np.zeros((1,self.ESN_arch[1])))
-        res_states, res_state, outputs2 = self.esn.res_states(self.input_train, res_state)
+        _, res_state, outputs1 = self.esn.res_states(self.input_pre, np.zeros((1,self.ESN_arch[1])), compute_readout = True)
+        res_states, res_state, outputs2 = self.esn.res_states(self.input_train, res_state, compute_readout = True)
         new_weights = self.esn.train(res_states, self.train_targets)#np.reshape(targets,2000))
         self.esn.weights_out = new_weights
-        _, _, outputs3 = self.esn.res_states(self.input_post, res_state)
+        _, _, outputs3 = self.esn.res_states(self.input_post, res_state, compute_readout = True)
 
         mse = np.sum(np.square((np.reshape(outputs3,2000) - self.X_t[4005:6005])))/len(outputs3)
 

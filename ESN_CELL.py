@@ -72,19 +72,20 @@ class ESN():
 
 
 
-    def res_states(self, inputs, init_state):
+    def res_states(self, inputs, init_state, compute_readout = False):
 
         """ Runs one feedforward step of ESN.
 
         Args:
           inputs: shape [self.in_units x <timeserieslength>]
           init_state: shape [1 x self.res_units]
+          compute_readout: True if readout of esn should be computed
 
         Returns:
           res_state = (1 - alpha)*res_state + alpha*activation(weights_in*input
           + weights_res*state + bias).
           res_states: collection of res_state for all input timesteps
-          outputs: readout of esn, shape [<timeserieslength> x self.out_units]
+          outputs: if compute_readout is set to True: output of esn, shape [<timeserieslength> x self.out_units] else empty list
         """
 
         res_states = []
@@ -101,21 +102,23 @@ class ESN():
             new_state = self.activation(np.multiply(self.weights_in, inputs[0][n]) + \
                                         np.matmul(res_state, self.weights_res) + \
                                         self.bias)
-            #print("New",new_state.shape)
 
             res_state = np.multiply(1-self.leak_rate, res_state) + np.multiply(self.leak_rate, new_state)
             res_states.append(res_state)
 
-            #print(res_state.shape,self.weights_out.shape)
             #TODO: Or output before leak?, different activiation function for output?, how to include activation into ridge
-            output = sum(np.matmul(res_state,self.weights_out))
-            outputs.append(output)
+            if compute_readout:
+                output = self.out_states(res_state)
+                outputs.append(output)
 
         res_states = np.array(res_states).reshape([len_in, self.res_units]) # dims: [<timeserieslength>, self.res_units]
 
         return res_states, res_state, outputs
 
-
+    #Computes the readout of the esn for one timestep (given the reservoir state and the readout weigths)
+    def out_states(self, res_state):
+        return sum(np.matmul(res_state,self.weights_out))
+        
     def train(self, res_states, targets):
 
         """ Train the readout/output weights using ridge regression
