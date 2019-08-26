@@ -15,16 +15,19 @@ import sys, os
 import random
 import numpy as np
 import math
-import matplotlib.pyplot as plt
+import pickle
+import dill
 from collections import defaultdict
 from functools import partial
 from ddeint import ddeint
+from functools import partialmethod
+from functools import partial
 
 sys.path.append(os.path.join(os.path.split(__file__)[0],'..','..'))
 from peas.methods.neat import NEATPopulation, NEATGenotype
 from peas.networks.rnn import NeuralNetwork
 
-from Testing_ESN import *
+from narma_esn import *
 from ESN_CELL import *
 
 
@@ -85,32 +88,40 @@ class ESNTask_external(object):
     def __init__(self, ESN_arch):
         self.ESN_arch = ESN_arch
 
-    def evaluate(self, network, verbose=False):
-        matrices = self.get_weight_matrices(network)
+    def evaluate(self, genotype):
+        matrices = self.get_weight_matrices(genotype)
 
         #set up ESN with weight matrices from NEAT
         esn_instance = test_esn(self.ESN_arch, matrices)
         #Run task in ESN and get performance (mean squared error)
-        mse = esn_instance.calc_esn()
+        error = esn_instance.calc_esn()
 
-        score = 1.0/mse
+        score = 1/error
 
         return {'fitness':score}
 
-    def solve(self, network):
-        score = self.evaluate(network)
+    def calc_lyapunov(self, genotype):
+        matrices = self.get_weight_matrices(genotype)
+        #set up ESN with weight matrices from NEAT
+        esn_instance = test_esn(self.ESN_arch, matrices)
+
+        lyapunov = esn_instance.calc_lyapunov()
+        return lyapunov
+
+    def solve(self, genotype):
+        score = self.evaluate(genotype)
         return score['fitness'] > 0.9
 
-    def get_weight_matrices(self, network):
+    def get_weight_matrices(self, genotype):
 
-        matrix = network.get_network_data()[0]
-
+        matrix = genotype.get_network_data()[0]
+        #TODO: node types (activation) (which we find in genotype.get_network_data()[1])
         #TODO: Check if bias is node or not (default False, but property of NEATGenotype)
         bias = 1
 
-        nodes = network.node_genes   #: [] Tuples of (fforder, type, bias, responsraininge, layer)
+        nodes = genotype.node_genes   #: [] Tuples of (fforder, type, bias, responsraininge, layer)
         self.ESN_arch=(self.ESN_arch[0], len(nodes)-self.ESN_arch[0]-self.ESN_arch[2],self.ESN_arch[2])
-        conns = network.conn_genes    #: {} Tuples of (innov, from, to, weight, enabled) conn[(i, j)]
+        conns = genotype.conn_genes    #: {} Tuples of (innov, from, to, weight, enabled) conn[(i, j)]
 
         output_layer = np.int64(0) #output layer is supposed to be max value for int64, but it's checked just in case
 
@@ -176,17 +187,21 @@ def random_topology(n_nodes, sparsity):
 #Initialize Neat and ESN
 def init():
     #Defining node amounts for ESN
-    res_units = 50
+    res_units = 30
     in_units = 1
     out_units = 1
     ESN_arch = [in_units, res_units, out_units]
-    sparsity = 0.2
+    sparsity = 0.1
 
-    neat_iterations = 50
-    neat_population_size = 50
+    neat_iterations = 5
+    neat_population_size = 5
 
+    global Scores
+    Scores = {"error": [],"lyapunov": []}
+
+    #TODO: Scaling of weigths regarding spectral radius is hidden for neat and done just in esn, is that the correct way?
     topology = random_topology(res_units+in_units+out_units, sparsity = sparsity)
-    genotype = lambda: NEATGenotype(inputs=1, outputs=1, topology = topology, types=['tanh'], feedforward = False,prob_add_node=0.2,prob_add_conn=0.5)
+    genotype = lambda: NEATGenotype(inputs=1, outputs=1, topology = topology, types=['tanh'], feedforward = False,prob_add_node=0.2,prob_add_conn=0.1)
 
     # Create a population
     pop = NEATPopulation(genotype, popsize = neat_population_size)
@@ -197,24 +212,40 @@ def init():
 
     return task, pop, neat_iterations
 
-#Called after every neat generation, just for saving each generation's fitness
-def epoch_callback(self):
+#loads earlier started neuroevolution state as to continue it
+def load_neat_state(statefile):
     global Scores
-    Scores.append(self.champions[-1].stats['fitness'])
+    with open(statefile, "rb") as input_file:
+        Scores = dill.load(input_file)
+        print("len",len(Scores["error"]))
+        pop = dill.load(input_file)
+        task = dill.load(input_file)
+
+    neat_iterations = 50
+
+    return task, pop, neat_iterations
+
+#Called after every neat generation, just for saving each generation's fitness
+def epoch_callback(self, task):
+    global Scores
+    Scores["error"].append(1/self.champions[-1].stats['fitness'])
+    Scores["lyapunov"].append(task.calc_lyapunov(self.champions[-1]))
+
+    # Save population, task, Scores to pickle file, as to enable possibility to interrupt neuroevolution
+    with open(r"neat_progress.pickle", "wb") as output_file:
+        print("len",len(Scores["error"]))
+        dill.dump(Scores, output_file)
+        dill.dump(self, output_file) #Population
+        dill.dump(task, output_file)
 
 def run_neat(task, population, iterations):
-    global Scores
-    Scores = []
 
-    pop.epoch(generations=iterations, evaluator=task, solution=task, callback=epoch_callback)
+    pop.epoch(generations=iterations, evaluator=task, solution=task, callback=partial(epoch_callback, task=task), reset = False)
 
-    #final = pop.champions[-1]
+    #champion = pop.champions[-1]
+    #print("Lypunov Exponent:",task.calc_lyapunov(champion))
 
-    plt.plot(Scores, label = "Fitness")
-    plt.xlabel("Iteration")
-    plt.ylabel("Fitness")
-    plt.show()
+task, pop, neat_iterations = load_neat_state("neat_progress.pickle")
+#task, pop, neat_iterations = init()
 
-
-task, pop, neat_iterations = init()
 run_neat(task, pop, neat_iterations)

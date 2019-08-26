@@ -118,7 +118,7 @@ class ESN():
     #Computes the readout of the esn for one timestep (given the reservoir state and the readout weigths)
     def out_states(self, res_state):
         return sum(np.matmul(res_state,self.weights_out))
-        
+
     def train(self, res_states, targets):
 
         """ Train the readout/output weights using ridge regression
@@ -138,7 +138,7 @@ class ESN():
 
         return new_weights_out
 
-    def lyapunov_exponent(self, inputs, init_state):
+    def old_lyapunov_exponent(self, inputs, init_state):
 
         """
         Computes Lyapunov Exponent of the ESN
@@ -205,7 +205,7 @@ class ESN():
                 input_copy_esn = inputs[:,init_transient+step].reshape([1,1]) # dims: [1,1]
 
                 # output of copy_esn
-                _, out_copy_esn = copy_esn.res_states(inputs=input_copy_esn, init_state=init_copy_esn) # dims: [1,100]
+                _, out_copy_esn, _ = copy_esn.res_states(inputs=input_copy_esn, init_state=init_copy_esn) # dims: [1,100]
 
                 # Euclidean distance between esn and copy_esn after 1 timestep
                 d_1 = np.linalg.norm(out_copy_esn-out_esn)
@@ -222,3 +222,76 @@ class ESN():
         lyapunov_exp = np.mean(ln_d1_d0)
 
         return lyapunov_exp #, df_n_avgdist
+
+    def lyapunov_exponent(self, inputs, init_state):
+
+        """
+        Computes Lyapunov Exponent of the ESN
+
+        Args:
+          inputs: shape [self.in_units x <timeserieslength>]
+          init_state: shape [1 x self.res_units]
+
+        Returns:
+          A tuple (lyapunov_exp, df_n_avgdist)
+
+        """
+
+        res_states = self.res_states(inputs=inputs, init_state=init_state)[0]
+        len_in = len(inputs[0])
+
+        # Instantiating a copy ESN
+        copy_esn = ESN(self.ESN_arch, self.activation, self.leak_rate, self.weights_std, self.sparsity)
+        copy_esn.weights_in = self.weights_in
+        copy_esn.weights_res = self.weights_res
+        copy_esn.bias = self.bias
+        copy_esn.spectral_radius = self.spectral_radius
+
+        # length of discarded initial transient
+        init_transient = 999
+
+        # d_0 is the perturbation magnitude of order 1e-8
+        np.random.seed(1)
+        d_0 = np.random.normal(size=[], loc=1e-12, scale=1e-13)
+
+
+        df_n_avgdist = pd.DataFrame(columns=['Perturbed_Neuron','Initial_Perturbation','Avg_Dist'])
+        ln_d1_d0 = []
+
+
+        for pert_n in range(self.res_units):
+
+            dist_esns = []
+
+            # Extracting Initial State for a Copy of ESN
+            init_copy_esn = res_states[init_transient].reshape([1, self.res_units])
+
+            #Perturbing 'pert_n'
+            np.put(init_copy_esn, ind=pert_n, v=d_0)
+
+            for step in range(1, len_in-init_transient):
+
+                # output of esn
+                out_esn = res_states[init_transient+step].reshape([1, self.res_units])
+
+                # one timestep Input for copy_esn
+                input_copy_esn = inputs[:,init_transient+step].reshape([1,1]) # dims: [1,1]
+
+                # output of copy_esn
+                out_copy_esn = copy_esn.res_states(inputs=input_copy_esn, init_state=init_copy_esn)[0] # dims: [1,100]
+
+                # Euclidean distance between esn and copy_esn after 1 timestep
+                d_1 = np.linalg.norm(out_copy_esn-out_esn)
+
+                dist_esns.append(d_1)
+                ln_d1_d0.append(np.log(d_1/d_0))
+
+                # Normalizing the state of esn_2 to the distance d_0
+                # for next iteration over the next input timestep
+                init_copy_esn = out_esn + np.multiply((d_0/d_1),np.subtract(out_copy_esn, out_esn))
+
+            df_n_avgdist.loc[pert_n+1] = [pert_n+1, d_0, np.mean(dist_esns)]
+
+        lyapunov_exp = np.mean(ln_d1_d0)
+
+        return lyapunov_exp#, df_n_avgdist
