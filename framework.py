@@ -187,14 +187,14 @@ def random_topology(n_nodes, sparsity):
 #Initialize Neat and ESN
 def init():
     #Defining node amounts for ESN
-    res_units = 30
+    res_units = 100
     in_units = 1
     out_units = 1
     ESN_arch = [in_units, res_units, out_units]
-    sparsity = 0.1
+    sparsity = 0.17
 
-    neat_iterations = 5
-    neat_population_size = 5
+    neat_iterations = 1000
+    neat_population_size = 500
 
     global Scores
     Scores = {"error": [],"lyapunov": []}
@@ -217,11 +217,10 @@ def load_neat_state(statefile):
     global Scores
     with open(statefile, "rb") as input_file:
         Scores = dill.load(input_file)
-        print("len",len(Scores["error"]))
         pop = dill.load(input_file)
         task = dill.load(input_file)
 
-    neat_iterations = 50
+    neat_iterations = 1000
 
     return task, pop, neat_iterations
 
@@ -231,21 +230,20 @@ def epoch_callback(self, task):
     Scores["error"].append(1/self.champions[-1].stats['fitness'])
     Scores["lyapunov"].append(task.calc_lyapunov(self.champions[-1]))
 
-    # Save population, task, Scores to pickle file, as to enable possibility to interrupt neuroevolution
+    # Save Scores, population, task to pickle file, as to enable possibility to interrupt neuroevolution
     with open(r"neat_progress.pickle", "wb") as output_file:
-        print("len",len(Scores["error"]))
         dill.dump(Scores, output_file)
         dill.dump(self, output_file) #Population
         dill.dump(task, output_file)
 
-def run_neat(task, population, iterations):
 
-    pop.epoch(generations=iterations, evaluator=task, solution=task, callback=partial(epoch_callback, task=task), reset = False)
+start_anew = True #either initialize new neat run or load earlier started one
+if start_anew:
+    task, population, neat_iterations = init()
+else:
+    task, population, neat_iterations = load_neat_state("neat_progress.pickle")
+
+population.epoch(generations=neat_iterations, evaluator=task, solution=task, callback=partial(epoch_callback, task=task), reset = start_anew)
 
     #champion = pop.champions[-1]
     #print("Lypunov Exponent:",task.calc_lyapunov(champion))
-
-task, pop, neat_iterations = load_neat_state("neat_progress.pickle")
-#task, pop, neat_iterations = init()
-
-run_neat(task, pop, neat_iterations)
