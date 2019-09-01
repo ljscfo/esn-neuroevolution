@@ -1,5 +1,5 @@
 """
-Testing ESN with the NARMA task
+Testing ESN with the NARMA and MMSE task
   implementation of ESN is in ESN_CELL.py
 """
 
@@ -10,7 +10,7 @@ from ESN_CELL import *
 from ddeint import ddeint
 
 #Instanciates, runs and trains an ESN as implemented in ESN_CELL.py
-class test_esn:
+class esn:
 
     Plotting = False
 
@@ -27,18 +27,23 @@ class test_esn:
 
         X_t, Y_t = self.prepare_narma()
         self.X_t = X_t
-        self.Y_t = Y_t
+        self.Y_t = Y_t[0:6000]
+
+        for k in range(1,300,3):
+            self.Y_t = np.vstack((self.Y_t,X_t[k:k+6000])) #Desired output for mmse
+
+        self.Y_t = np.rot90(self.Y_t)
 
         #split data
         #TODO: work on inconsistent shape
-        self.input_pre = X_t[0:2000].reshape([in_units, 2000]) #Heat up ESN
-        self.input_train = X_t[2000:4000].reshape([in_units, 2000]) #Inputs used for training
-        self.input_post = X_t[4000:6000].reshape([in_units, 2000]) #For testing trained readout's performance
-        self.train_targets = Y_t[2000:4000].reshape([2000,in_units]) #Desired output while training input is fed (Targets)
+        self.input_pre = self.X_t[0:2000].reshape([in_units, 2000]) #Heat up/Stabilize ESN
+        self.input_train = self.X_t[2000:4000].reshape([in_units, 2000]) #Inputs used for training
+        self.input_post = self.X_t[4000:6000].reshape([in_units, 2000]) #For testing trained readout's performance
+        self.train_targets = self.Y_t[2000:4000,:] # desired output for narma
 
     #Prepare data for timeseries
     def prepare_narma(self):
-        length = 6005
+        length = 7000
         order = 30
 
         X_t = np.random.uniform(0,0.5,length+order)
@@ -62,16 +67,20 @@ class test_esn:
         self.esn.weights_out = new_weights
         _, _, outputs3 = self.esn.res_states(self.input_post, res_state, compute_readout = True)
 
-        narma_error = np.sqrt(np.mean(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000]))) / np.var(self.Y_t[4000:6000]))
+        narma_error = np.sqrt(np.mean(np.square(outputs3[:,0] - self.Y_t[4000:6000,0])) / np.var(self.Y_t[4000:6000,0]))
+        mmse = np.sqrt(np.mean(np.square(self.Y_t[4000:6000,1:]-outputs3[:,1:]))/np.var(self.X_t[0:6000]))
 
+        #mse = np.sum(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000])))/len(outputs3)
+
+        #todo: plotting doesn't work right now!
         if (self.Plotting):
             #Plot target values and predicted values
-            plt.plot((outputs1+outputs2+outputs3)[0:6000-self.target_timegap], label ="ESN output") #Predicted
+            plt.plot((outputs1+outputs2+outputs3)[0:6000], label ="ESN output") #Predicted
             plt.plot(self.Y_t, label="Target values") #Targets
             plt.legend()
             plt.show()
 
-        return narma_error
+        return mmse, narma_error
 
     def calc_lyapunov(self):
         return self.esn.lyapunov_exponent(self.input_pre,np.zeros((1,self.ESN_arch[1])))

@@ -15,7 +15,7 @@ class ESN():
             weights_std: float64, variance of the normal dist. used in initializing weight matrices.
             sparsity: float64, [0,1], sparseness of the reservoir weight matrix. Default: 0.1.
             weights_external: if None, reservoir weights are created randomly,
-              otherwise, a list of length 4 is expected, entries being weight matrices for input, bias, reservoir, output
+              otherwise, a list of length 3 or 4 is expected, entries being weight matrices for input, bias, reservoir and optionally output
         """
 
         self.ESN_arch = ESN_arch
@@ -38,8 +38,11 @@ class ESN():
             self.weights_in = weights_external[0]
             self.bias = weights_external[1]
             self.weights_res = weights_external[2]
-            self.weights_out = weights_external[3]
 
+            if len(weights_external) == 4: #output weights are given
+                self.weights_out = weights_external[3]
+            else:
+                self.weights_out = np.random.normal(size=[self.res_units, self.out_units], scale=self.weights_std)
         else:
             # Initialize 'W_in'
             self.weights_in = np.random.normal(size=[self.in_units, self.res_units], scale=self.weights_std)
@@ -54,7 +57,6 @@ class ESN():
             # dims: [1, res_units]
 
             self.weights_out = np.random.normal(size=[self.res_units, self.out_units], scale=self.weights_std)
-
             # Compute sparse_mask
             # dims: [res_units, res_units]
             self.sparse_mask = np.float64(np.less_equal(np.random.uniform(size=[self.res_units, self.res_units]), \
@@ -62,6 +64,8 @@ class ESN():
 
             # W_res is transformed for making it sparse
             self.weights_res = np.multiply(self.weights_res, self.sparse_mask)
+
+
 
         # Compute Spectral Radius
         #print(np.linalg.eigvals(self.weights_res))
@@ -87,11 +91,11 @@ class ESN():
           res_states: collection of res_state for all input timesteps
           outputs: if compute_readout is set to True: output of esn, shape [<timeserieslength> x self.out_units] else empty list
         """
-
         res_states = []
         outputs = []
         res_state = init_state
         len_in = len(inputs[0])
+
 
         for n in range(len_in):
             """
@@ -113,11 +117,11 @@ class ESN():
 
         res_states = np.array(res_states).reshape([len_in, self.res_units]) # dims: [<timeserieslength>, self.res_units]
 
-        return res_states, res_state, outputs
+        return res_states, res_state, np.array(outputs)
 
     #Computes the readout of the esn for one timestep (given the reservoir state and the readout weigths)
     def out_states(self, res_state):
-        return sum(np.matmul(res_state,self.weights_out))
+        return np.matmul(res_state,self.weights_out).flatten()
 
     def train(self, res_states, targets):
 
@@ -128,7 +132,7 @@ class ESN():
           targets: target values for the output units, shape: [<timeserieslength> x self.out_units]
 
         Returns:
-            new weights that linarly map res_states to corresponding target values shape [self.res_units x self.out_units]
+            new weights that linarly map res_states to corresponding target values, shape [self.res_units x self.out_units]
         """
 
         ridge = Ridge(alpha=0.1, fit_intercept = False)

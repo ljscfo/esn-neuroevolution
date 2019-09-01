@@ -33,7 +33,7 @@ class test_esn:
 
         #split data
         #TODO: work on inconsistent shape
-        self.input_pre = X_t[0:2000].reshape([in_units, 2000]) #Heat up ESN
+        self.input_pre = X_t[0:2000].reshape([in_units, 2000]) #Heat up/Stabilize ESN
         self.input_train = X_t[2000:4000].reshape([in_units, 2000]) #Inputs used for training
         self.input_post = X_t[4000:6000].reshape([in_units, 2000]) #For testing trained readout's performance
         self.train_targets = X_t[2000+self.target_timegap:4000+self.target_timegap].reshape([2000,in_units]) #Desired output while training input is fed (Targets)
