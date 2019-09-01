@@ -27,7 +27,7 @@ sys.path.append(os.path.join(os.path.split(__file__)[0],'..','..'))
 from peas.methods.neat import NEATPopulation, NEATGenotype
 from peas.networks.rnn import NeuralNetwork
 
-from narma_esn import *
+import narma_mmse_esn
 from ESN_CELL import *
 
 
@@ -99,7 +99,7 @@ class ESNTask_external(object):
         # Taking the mean fitness value of multiple ESN-runs and -trainings to get steadier results
         for run in range(self.esn_repetitions):
             #set up ESN with weight matrices from NEAT (input, bias, reservoir)-weights; output weights are trained in ESN
-            esn_instance = test_esn(self.ESN_arch, matrices)
+            esn_instance = narma_mmse_esn.esn(self.ESN_arch, matrices)
             #Run task in ESN and get performances on narma and mmse
             mmse, narma_error = esn_instance.calc_esn()
             mmses.append(mmse)
@@ -112,7 +112,7 @@ class ESNTask_external(object):
     def calc_lyapunov(self, genotype):
         matrices = self.get_weight_matrices(genotype)
         #set up ESN with weight matrices from NEAT
-        esn_instance = test_esn(self.ESN_arch, matrices)
+        esn_instance = narma_mmse_esn.esn(self.ESN_arch, matrices)
 
         lyapunov = esn_instance.calc_lyapunov()
         return lyapunov
