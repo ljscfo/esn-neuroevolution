@@ -135,10 +135,11 @@ class ESN():
             new weights that linarly map res_states to corresponding target values, shape [self.res_units x self.out_units]
         """
 
-        ridge = Ridge(alpha=0.1, fit_intercept = False)
+        ridge = Ridge(alpha=0.0000001, fit_intercept = False)#, fit_intercept = True, normalize = True)
         #packed_targets = [(target) for target in targets]
         ridge.fit(res_states, targets)
-        new_weights_out = ridge.coef_.reshape([self.res_units, self.out_units])
+        #print(res_states.shape,targets.shape,ridge.coef_.shape)
+        new_weights_out = np.swapaxes(ridge.coef_,0,1)#.reshape([self.res_units, self.out_units])
 
         return new_weights_out
 

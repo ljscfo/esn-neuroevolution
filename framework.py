@@ -95,6 +95,7 @@ class ESNTask_external(object):
         mmses=[]
         narmas=[]
 
+        #todo: look at variance of repetitions against score, by that seeing what may cause not-convergence
         #Because of the randomness involved, training of same ESN results in different readout weights
         # Taking the mean fitness value of multiple ESN-runs and -trainings to get steadier results
         for run in range(self.esn_repetitions):
@@ -193,7 +194,7 @@ def init(n_reservoir_units = 100, reservoir_sparsity = 0.1, neat_iterations = 10
     #Defining node amounts for ESN
     res_units = n_reservoir_units
     in_units = 1
-    out_units = 101
+    out_units = 34
     ESN_arch = [in_units, res_units, out_units]
     sparsity = reservoir_sparsity
 
@@ -201,7 +202,7 @@ def init(n_reservoir_units = 100, reservoir_sparsity = 0.1, neat_iterations = 10
     neat_population_size = neat_population_size
 
     global Scores
-    Scores = {"error": [],"lyapunov": []}
+    Scores = {"fitness": [],"lyapunov": [], "mmse": [] ,"narma": []}
 
     #TODO: Scaling of weigths regarding spectral radius is hidden for neat and done just in esn, is that the correct way?
     topology = random_topology(res_units+in_units, sparsity = sparsity)
@@ -229,7 +230,7 @@ def load_neat_state(statefile, neat_iterations = 1000):
 #Called after every neat generation, just for saving each generation's fitness
 def epoch_callback(self, task):
     global Scores
-    Scores["error"].append(1/self.champions[-1].stats['fitness'])
+    Scores["fitness"].append(self.champions[-1].stats['fitness'])
     Scores["lyapunov"].append(task.calc_lyapunov(self.champions[-1]))
 
     # Save Scores, population, task to pickle file, as to enable possibility to interrupt neuroevolution
@@ -241,7 +242,7 @@ def epoch_callback(self, task):
 
 start_anew = True #either initialize new neat run or load earlier started one
 if start_anew:
-    task, population, neat_iterations = init()
+    task, population, neat_iterations = init(n_reservoir_units = 60, neat_population_size = 50)
 else:
     task, population, neat_iterations = load_neat_state("neat_progress.pickle")
 

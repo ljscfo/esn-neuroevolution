@@ -12,7 +12,7 @@ from ddeint import ddeint
 #Instanciates, runs and trains an ESN as implemented in ESN_CELL.py
 class esn:
 
-    Plotting = False
+    Plotting = True
 
     def __init__(self, ESN_arch, weight_matrices = None):
 
@@ -29,17 +29,28 @@ class esn:
         self.X_t = X_t
         self.Y_t = Y_t[0:6000]
 
-        for k in range(1,300,3):
-            self.Y_t = np.vstack((self.Y_t,X_t[k:k+6000])) #Desired output for mmse
+        for k in range(1,100,3):
+            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(0,0.5,100),X_t[100-k:6000-k])))) #Desired output for mmse
 
-        self.Y_t = np.rot90(self.Y_t)
+        self.Y_t = np.swapaxes(self.Y_t,0,1)
 
         #split data
         #TODO: work on inconsistent shape
         self.input_pre = self.X_t[0:2000].reshape([in_units, 2000]) #Heat up/Stabilize ESN
         self.input_train = self.X_t[2000:4000].reshape([in_units, 2000]) #Inputs used for training
         self.input_post = self.X_t[4000:6000].reshape([in_units, 2000]) #For testing trained readout's performance
-        self.train_targets = self.Y_t[2000:4000,:] # desired output for narma
+        self.train_targets = self.Y_t[2000:4000,:] # desired output for narma (node 0) and mmse (nodes 1 to last)
+
+        #self.plot_train_data()
+
+    #Plot some data the network is trained on
+    # out_node_idx indicates the node for which the target values should be plotted
+    def plot_train_data(self, out_node_idx = 0):
+        plt.plot(self.X_t[2000:2500], label ="Input")
+        plt.plot(self.train_targets[0:500, out_node_idx], label="Target values") #Targets
+        plt.legend()
+        plt.show()
+        #assert False
 
     #Prepare data for timeseries
     def prepare_narma(self):
@@ -72,41 +83,25 @@ class esn:
 
         #mse = np.sum(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000])))/len(outputs3)
 
-        #todo: plotting doesn't work right now!
-        if (self.Plotting):
-            #Plot target values and predicted values
-            plt.plot((outputs1+outputs2+outputs3)[0:6000], label ="ESN output") #Predicted
-            plt.plot(self.Y_t, label="Target values") #Targets
-            plt.legend()
-            plt.show()
+        if self.Plotting:
+            self.plot_network_output(np.vstack((outputs1,outputs2,outputs3)), 10, 0.02)
 
         return mmse, narma_error
+
+    #Plot output and target values of node with index out_node_idx
+    # frequency indicates how often a plot is produced by setting the range of a random generator
+    def plot_network_output(self, outputs, out_node_idx = 0, frequency = 1):
+        #Plot target values and predicted values
+        if np.random.randint(0, 1/frequency) == 0 :
+            plt.plot(outputs[5500:6000,10], label ="ESN output") #Predicted
+            plt.plot(self.Y_t[5500:6000,10], label="Target values") #Targets
+            plt.legend()
+            plt.show()
+            #assert False
 
     def calc_lyapunov(self):
         return self.esn.lyapunov_exponent(self.input_pre,np.zeros((1,self.ESN_arch[1])))
 
 def __main__():
-    esn_ins = test_esn((1,8,1))
+    esn_ins = esn((1,8,1))
     esn_ins.calc_esn()
-
-#__main__()
-"""
-#NARMA values plot
-length = 50
-order = 30
-
-X_t = np.random.uniform(0,0.5,length+order)
-Y_t = np.zeros(order)
-
-for _,t in enumerate(range(order,order+length)):
-    Y_t = np.append(Y_t, 0.2*Y_t[-1] + 0.004*Y_t[-1]*sum(Y_t[-1:-order:-1]) + 1.5*X_t[t-(order-1)]*X_t[t] + 0.001)
-
-print(Y_t)
-
-X_t = X_t[order:]
-Y_t = Y_t[order:]
-
-plt.plot(X_t)
-plt.plot(Y_t)
-plt.show()
-"""

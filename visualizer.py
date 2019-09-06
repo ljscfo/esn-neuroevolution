@@ -1,10 +1,13 @@
 import dill
 import matplotlib.pyplot as plt
 
+#visualizes scores aquired neat algorithm, stored in statefile
 def visualize(statefile):
 
     with open(statefile, "rb") as input_file:
         Scores = dill.load(input_file)
+
+    #Scores["error"]=[1/i for i in Scores["error"]]
 
     #plt.plot(Scores["fitness"], label = "Fitness")
     #plt.plot(Scores["lyapunov"], label = "Lyapunov")
@@ -25,6 +28,9 @@ def visualize(statefile):
     #plt.xlabel("Iteration")
     #plt.ylabel("Fitness")
     #plt.legend()
+    plt.show()
+
+    plt.plot(Scores["lyapunov"],Scores["error"],'bo')
     plt.show()
 
 visualize("neat_progress.pickle")
