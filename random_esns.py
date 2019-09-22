@@ -13,8 +13,8 @@ import dill
 #Creates n_esns esns with spectral radii in range [spectral_radius_from, spectral_radius_to]
 # and calls run_esn()
 # append results from run_esn() to resultfile; if None, create a new resultfile
-def experiment(n_esns = 100, spectral_radius_from = 0.5, spectral_radius_to = 2.0, resultfile = None):
-    res_units = 100
+def experiment(n_esns = 100, spectral_radius_from = 10, spectral_radius_to = 100, resultfile = None):
+    res_units = 150
     in_units = 1
     out_units = 301
     ESN_arch = [in_units, res_units, out_units]
@@ -39,7 +39,7 @@ def experiment(n_esns = 100, spectral_radius_from = 0.5, spectral_radius_to = 2.
         with open(r"random_esn_scores.pickle", "wb") as output_file:
             dill.dump(scores, output_file)
 
-        print(i_esn+1,"/",n_esns,"done, radius:",spectral_radius,";fitness:",score['fitness'])
+        print(i_esn+1,"/",n_esns,"done, radius:",spectral_radius,";",score)#fitness:",score['fitness'])
 
 
 #Create n_iterations esns with node amounts defined in ESN_arch and spectral_radius
@@ -58,14 +58,21 @@ def run_esn(ESN_arch, spectral_radius = 1, n_iterations = 3):
         #set up ESN with weight matrices from NEAT (input, bias, reservoir)-weights; output weights are trained in ESN
         esn_instance = narma_mmse_esn.esn(ESN_arch, spectral_radius = spectral_radius)
         #Run task in ESN and get performances on narma and mmse
-        mmse, narma_error = esn_instance.calc_esn()
+        mmse, narma = esn_instance.calc_esn()
         mmses.append(mmse)
-        narmas.append(narma_error)
+        narmas.append(narma)
 
-    score = 2-np.mean(mmses)-np.mean(narmas)
+    mmse = np.mean(mmses)
+    narma = np.mean(narmas)
+
+    #calculate standart deviations
+    std_mmse = np.std(mmses)
+    std_narma = np.std(narmas)
+
+    score = 2-mmse-narma
 
     lyapunov = esn_instance.calc_lyapunov()
 
-    return {'fitness':score, 'mmse':mmse, 'narma':narma_error, 'lyapunov': lyapunov}
+    return {'fitness':score, 'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'lyapunov': lyapunov}
 
 experiment(200, resultfile = "random_esn_scores.pickle")

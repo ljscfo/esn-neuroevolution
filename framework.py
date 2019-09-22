@@ -15,7 +15,6 @@ import sys, os
 import random
 import numpy as np
 import math
-import pickle
 import dill
 from collections import defaultdict
 from functools import partial
@@ -28,7 +27,6 @@ from peas.methods.neat import NEATPopulation, NEATGenotype
 from peas.networks.rnn import NeuralNetwork
 
 import narma_mmse_esn
-from ESN_CELL import *
 
 
 # Testing Neat without ESN code on mackey_glass timeseries, partly copied from neat examples
@@ -102,13 +100,22 @@ class ESNTask_external(object):
             #set up ESN with weight matrices from NEAT (input, bias, reservoir)-weights; output weights are trained in ESN
             esn_instance = narma_mmse_esn.esn(self.ESN_arch, matrices)
             #Run task in ESN and get performances on narma and mmse
-            mmse, narma_error = esn_instance.calc_esn()
+            mmse, narma = esn_instance.calc_esn()
             mmses.append(mmse)
-            narmas.append(narma_error)
+            narmas.append(narma)
 
-        score = 2-np.mean(mmses)-np.mean(narmas)
+        mmse = np.mean(mmses)
+        narma = np.mean(narmas)
 
-        return {'fitness':score}
+        #calculate standart deviations
+        std_mmse = np.std(mmses)
+        std_narma = np.std(narmas)
+
+        score = 2-mmse-narma
+
+        lyapunov = esn_instance.calc_lyapunov()
+
+        return {'fitness':score, 'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma}
 
     def calc_lyapunov(self, genotype):
         matrices = self.get_weight_matrices(genotype)
@@ -194,7 +201,7 @@ def init(n_reservoir_units = 100, reservoir_sparsity = 0.1, neat_iterations = 10
     #Defining node amounts for ESN
     res_units = n_reservoir_units
     in_units = 1
-    out_units = 34
+    out_units = 301
     ESN_arch = [in_units, res_units, out_units]
     sparsity = reservoir_sparsity
 
@@ -231,6 +238,8 @@ def load_neat_state(statefile, neat_iterations = 1000):
 def epoch_callback(self, task):
     global Scores
     Scores["fitness"].append(self.champions[-1].stats['fitness'])
+    Scores["mmse"].append(self.champions[-1].stats['mmse'])
+    Scores["narma"].append(self.champions[-1].stats['narma'])
     Scores["lyapunov"].append(task.calc_lyapunov(self.champions[-1]))
 
     # Save Scores, population, task to pickle file, as to enable possibility to interrupt neuroevolution
@@ -242,7 +251,7 @@ def epoch_callback(self, task):
 
 start_anew = True #either initialize new neat run or load earlier started one
 if start_anew:
-    task, population, neat_iterations = init(n_reservoir_units = 60, neat_population_size = 50)
+    task, population, neat_iterations = init(n_reservoir_units = 50, neat_population_size = 10)
 else:
     task, population, neat_iterations = load_neat_state("neat_progress.pickle")
 
