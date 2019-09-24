@@ -4,6 +4,7 @@ Testing ESN with the NARMA and MMSE task
 """
 
 import numpy as np
+import scipy
 import matplotlib.pyplot as plt
 
 from ESN_CELL import *
@@ -12,25 +13,26 @@ from ddeint import ddeint
 #Instanciates, runs and trains an ESN as implemented in ESN_CELL.py
 class esn:
 
-    Plotting = True
+    #Plotting some network-output diagrams
+    Plotting = False
 
-    def __init__(self, ESN_arch, weight_matrices = None):
+    def __init__(self, ESN_arch, weight_matrices = None, spectral_radius = 1):
 
         self.ESN_arch = ESN_arch
         in_units = self.ESN_arch[0]
-        leakrate = 0.5
+        leakrate = 0.2
         activation = np.tanh
         weights_variance = 0.1
         sparsity = 0.1
 
-        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_variance, sparsity, weight_matrices)
+        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_variance, sparsity, weight_matrices, spectral_radius)
 
         X_t, Y_t = self.prepare_narma()
         self.X_t = X_t
         self.Y_t = Y_t[0:6000]
 
-        for k in range(1,100,3):
-            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(0,0.5,100),X_t[100-k:6000-k])))) #Desired output for mmse
+        for k in range(1,300):
+            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(0,0.5,300),X_t[300-k:6000-k])))) #Desired output for mmse/mc
 
         self.Y_t = np.swapaxes(self.Y_t,0,1)
 
@@ -81,12 +83,19 @@ class esn:
         narma_error = np.sqrt(np.mean(np.square(outputs3[:,0] - self.Y_t[4000:6000,0])) / np.var(self.Y_t[4000:6000,0]))
         mmse = np.sqrt(np.mean(np.square(self.Y_t[4000:6000,1:]-outputs3[:,1:]))/np.var(self.X_t[0:6000]))
 
+        #Memory capacity
+        mc = 0
+        for delay in range(1,300):
+            #print("pearson2:",scipy.stats.pearsonr(self.Y_t[4000:6000,delay],outputs3[:,delay])[0])
+            #print("  cov:",np.cov(self.Y_t[4000:6000,delay].flatten(),outputs3[:,delay].flatten()))
+            mc = mc + scipy.stats.pearsonr(self.Y_t[4000:6000,delay],outputs3[:,delay])[0]**2 #squared pearson correlation
+
         #mse = np.sum(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000])))/len(outputs3)
 
         if self.Plotting:
             self.plot_network_output(np.vstack((outputs1,outputs2,outputs3)), 10, 0.02)
 
-        return mmse, narma_error
+        return mc, mmse, narma_error
 
     #Plot output and target values of node with index out_node_idx
     # frequency indicates how often a plot is produced by setting the range of a random generator

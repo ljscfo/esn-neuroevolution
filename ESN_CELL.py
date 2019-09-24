@@ -5,7 +5,7 @@ from sklearn.linear_model import Ridge
 #TODO: use consitently either shape [timeserieslength x e.g.in_units] or the other way round but not both
 class ESN():
 
-    def __init__(self, ESN_arch, activation=np.tanh, leak_rate=0.0, weights_std=0.1, sparsity=0.1, weights_external = None):
+    def __init__(self, ESN_arch, activation=np.tanh, leak_rate=0.0, weights_std=0.1, sparsity=0.1, weights_external = None, set_spectral_radius = 1):
 
         """
         Args:
@@ -16,6 +16,7 @@ class ESN():
             sparsity: float64, [0,1], sparseness of the reservoir weight matrix. Default: 0.1.
             weights_external: if None, reservoir weights are created randomly,
               otherwise, a list of length 3 or 4 is expected, entries being weight matrices for input, bias, reservoir and optionally output
+            spectral_radius: if not None: changes the weigths so the spectral radius of the reservoir to that value
         """
 
         self.ESN_arch = ESN_arch
@@ -70,11 +71,11 @@ class ESN():
         # Compute Spectral Radius
         #print(np.linalg.eigvals(self.weights_res))
         self.spectral_radius = np.abs(np.linalg.eigvals(self.weights_res)).max()
-
-        # W_res is normalized wrt spectral_radius
-        self.weights_res = np.multiply(self.weights_res, 1/(self.spectral_radius))
-
-
+        
+        if (set_spectral_radius != None):
+            # W_res is normalized wrt spectral_radius
+            self.weights_res = np.multiply(self.weights_res, set_spectral_radius/(self.spectral_radius))
+            self.spectral_radius = np.abs(np.linalg.eigvals(self.weights_res)).max()
 
     def res_states(self, inputs, init_state, compute_readout = False):
 
