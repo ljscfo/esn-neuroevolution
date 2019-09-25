@@ -14,7 +14,8 @@ from ddeint import ddeint
 class esn:
 
     #Plotting some network-output diagrams
-    Plotting = False
+    Plotting = True
+    Input_range = (-1,1)
 
     def __init__(self, ESN_arch, weight_matrices = None, spectral_radius = 1):
 
@@ -31,8 +32,8 @@ class esn:
         self.X_t = X_t
         self.Y_t = Y_t[0:6000]
 
-        for k in range(1,300):
-            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(0,0.5,300),X_t[300-k:6000-k])))) #Desired output for mmse/mc
+        for k in range(1,301):
+            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(self.Input_range[0],self.Input_range[1],300),X_t[300-k:6000-k])))) #Desired output for mmse/mc
 
         self.Y_t = np.swapaxes(self.Y_t,0,1)
 
@@ -59,7 +60,7 @@ class esn:
         length = 7000
         order = 30
 
-        X_t = np.random.uniform(0,0.5,length+order)
+        X_t = np.random.uniform(self.Input_range[0],self.Input_range[1],length+order)
         Y_t = np.zeros(order)
 
         for _,t in enumerate(range(order,order+length)):
@@ -93,20 +94,26 @@ class esn:
         #mse = np.sum(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000])))/len(outputs3)
 
         if self.Plotting:
-            self.plot_network_output(np.vstack((outputs1,outputs2,outputs3)), 10, 0.02)
+            self.plot_network_output(np.vstack((outputs1,outputs2,outputs3)), 2, 1)
 
         return mc, mmse, narma_error
 
     #Plot output and target values of node with index out_node_idx
     # frequency indicates how often a plot is produced by setting the range of a random generator
-    def plot_network_output(self, outputs, out_node_idx = 0, frequency = 1):
+    def plot_network_output(self, data, node_idx = 0, frequency = 1):
         #Plot target values and predicted values
         if np.random.randint(0, 1/frequency) == 0 :
-            plt.plot(outputs[5500:6000,10], label ="ESN output") #Predicted
-            plt.plot(self.Y_t[5500:6000,10], label="Target values") #Targets
-            plt.legend()
+            #plt.plot(self.X_t[5500:5700], marker = '.', markersize = 2.5, color = (0,0,1,0.3),linewidth = 1, label="input") #Targets
+            plt.plot(self.X_t[5500:5700], marker = '.', markersize = 2.5, color = (1,0,0,0.6), linewidth = 0.7, label="target sequence") #Targets
+            plt.plot(data[5500+2:5700+2, node_idx], color = 'green', label ="delay 2") #Predicted
+            plt.plot(data[5500+10:5700+10, node_idx+8], color = 'blue', label ="delay 10") #Predicted
+            plt.plot(data[5500+100:5700+100, node_idx+98], color = 'black', label ="delay 100") #Predicted
+            plt.xlabel('timestep')
+            plt.xticks(np.arange(20, 81, 20), np.arange(5520, 5581, 20))
+            plt.xlim(20,80)
+            #plt.legend()
             plt.show()
-            #assert False
+            assert False
 
     def calc_lyapunov(self):
         return self.esn.lyapunov_exponent(self.input_pre,np.zeros((1,self.ESN_arch[1])))
