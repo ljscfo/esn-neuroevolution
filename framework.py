@@ -235,6 +235,11 @@ def load_neat_state(statefile, neat_iterations = 1000):
         pop = dill.load(input_file)
         task = dill.load(input_file)
 
+    for genotype in pop.population:
+        genotype.stdev_mutate_weight = 0.009
+        genotype.prob_mutate_weight = 0.05
+        genotype.prob_reset_weight = 0.02
+
     return task, pop, neat_iterations
 
 #Called after every neat generation, just for saving each generation's fitness
@@ -260,9 +265,9 @@ def epoch_callback(self, task):
         dill.dump(task, output_file)
 
 
-start_anew = True #either initialize new neat run or load earlier started one
+start_anew = False #either initialize new neat run or load earlier started one
 if start_anew:
-    task, population, neat_iterations = init(n_reservoir_units = 40, neat_population_size = 30)
+    task, population, neat_iterations = init(n_reservoir_units = 150, neat_population_size = 100)
 else:
     task, population, neat_iterations = load_neat_state("neat_progress.pickle")
 

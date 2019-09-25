@@ -1,10 +1,10 @@
 import dill
 import matplotlib.pyplot as plt
 
-#visualizes scores aquired neat algorithm, stored in statefile
-def visualize(statefile):
+#visualizes scores aquired neat algorithm, stored in resultfile
+def visualize(resultfile):
 
-    with open(statefile, "rb") as input_file:
+    with open(resultfile, "rb") as input_file:
         Scores = dill.load(input_file)
 
     #Scores["error"]=[1/i for i in Scores["error"]]

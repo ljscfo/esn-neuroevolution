@@ -83,4 +83,4 @@ def run_esn(ESN_arch, spectral_radius = 1, n_iterations = 3):
 
     return {'fitness':score, 'mc':mc, 'std_mc':std_mc,'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'lyapunov': lyapunov}
 
-experiment(200, resultfile = "random_esn_scores.pickle", append_results = True)
+experiment(200, resultfile = "random_esn_scores.pickle", append_results = False)
