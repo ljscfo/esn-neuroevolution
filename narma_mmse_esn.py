@@ -14,7 +14,7 @@ from ddeint import ddeint
 class esn:
 
     #Plotting some network-output diagrams
-    Plotting = True
+    Plotting = False
     Input_range = (-1,1)
 
     def __init__(self, ESN_arch, weight_matrices = None, spectral_radius = 1):
