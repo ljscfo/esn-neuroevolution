@@ -13,7 +13,7 @@ import dill
 #Creates n_esns esns with spectral radii in range [spectral_radius_from, spectral_radius_to]
 # and calls run_esn()
 # if append_results: appends results to existing file with results of previous experiment append results from run_esn() to resultfile
-def experiment(n_esns = 100, spectral_radius_from = 0.5, spectral_radius_to = 1.2, resultfile = "random_esn_scores.pickle", append_results = False):
+def experiment(n_esns = 100, spectral_radius_from = 1, spectral_radius_to = 1.2, resultfile = "random_esn_scores.pickle", append_results = False):
     res_units = 150
     in_units = 1
     out_units = 301
@@ -83,4 +83,4 @@ def run_esn(ESN_arch, spectral_radius = 1, n_iterations = 3):
 
     return {'fitness':score, 'mc':mc, 'std_mc':std_mc,'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'lyapunov': lyapunov}
 
-experiment(200, resultfile = "random_esn_scores.pickle", append_results = False)
+experiment(200, resultfile = "random_esn_scores_50.pickle", append_results = False)

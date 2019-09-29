@@ -38,8 +38,8 @@ def visualize(resultfile):
 
     plt.plot(Scores["lyapunov"],Scores["mc"],'b.')
     plt.xlabel("lyapunov exponent")
-    plt.ylabel("NARMA")
+    plt.ylabel("mc")
     plt.show()
 
 #TODO: file as command line argument
-visualize("neat_progress.pickle")
+visualize("random_esn_scores.pickle")
