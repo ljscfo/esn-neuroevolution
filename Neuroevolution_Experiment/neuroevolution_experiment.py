@@ -11,7 +11,7 @@ The readout/output weights of ESN are trained in ESN_CELL.py each time Network g
 Top level parameters for ESN and NEAT are defined via init() method
 """
 
-import sys, os
+import sys
 import random
 import numpy as np
 import math
@@ -210,9 +210,9 @@ def epoch_callback(self, task):
         dill.dump(task, output_file)
 
 
-start_anew = True #either initialize new neat run or load earlier started one
+start_anew = False #either initialize new neat run or load earlier started one
 if start_anew:
-    task, population, neat_iterations = init(n_reservoir_units = 150, neat_population_size = 100)
+    task, population, neat_iterations = init(n_reservoir_units = 50, neat_population_size = 10)
 else:
     task, population, neat_iterations = load_neat_state("neat_progress.pickle")
 
