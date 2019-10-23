@@ -49,6 +49,7 @@ def visualize(resultfile, amount_y_axis = 2, plot_progress = False, make_relativ
         #Scores["error"]=[1/i for i in Scores["error"]]
         plt.plot(scores["fitness"], label = "Fitness")
         plt.plot(scores["lyapunov"], label = "Lyapunov")
+        plt.xlabel("timestep")
         plt.grid()
         plt.legend()
         plt.show()
@@ -58,10 +59,10 @@ def visualize(resultfile, amount_y_axis = 2, plot_progress = False, make_relativ
 
     ax1 = fig.add_subplot(111)
 
-    ax1.plot(scores["lyapunov"],scores["mmse"],marker = '.', markersize = 3, linewidth = 0, color = 'black', zorder = 2)
+    ax1.plot(scores["lyapunov"],scores["mc"],marker = '.', markersize = 3, linewidth = 0, color = 'black', zorder = 2)
     #ax1.plot(scores["spectral_radius"],scores["std_mc"],marker = '.', markersize = 2, linewidth = 0, color = 'red')
 
-    ax1.set_ylabel('narma', color="black")
+    ax1.set_ylabel('mc', color="black")
     for tl in ax1.get_yticklabels():
         tl.set_color('black')
     ax1.set_xlabel('lyapunov')
@@ -73,21 +74,17 @@ def visualize(resultfile, amount_y_axis = 2, plot_progress = False, make_relativ
     if (amount_y_axis == 2):
         ax2 = ax1.twinx()
 
-        ax2.plot(scores["lyapunov"],scores["mc"],marker = '.', markersize = 1.3, linewidth = 0, color = 'red', zorder = 1)
+        ax2.plot(scores["lyapunov"],scores["std_mc"],marker = '.', markersize = 1.3, linewidth = 0, color = 'red', zorder = 1)
         #ax2.set_ylim([-0.095,0.7])
 
-        ax2.set_ylabel('mc not relative std.dev.', color='r')
+        ax2.set_ylabel('relative std.dev.', color='r')
         for tl in ax2.get_yticklabels():
             tl.set_color('r')
         #ax2.margins(0.165)
 
-    #plt.grid(linestyle='--', linewidth=0.5)
-    #plt.xlabel("lyapunov exponent")
-    #plt.ylabel("MC")
     plt.tight_layout(pad=0.3)
     plt.show()
 
 #TODO: file as command line argument
-visualize("neat_progress.pickle")
-#visualize("random_esn_scores_narma.pickle")
-#visualize("random_esn_scores_small_res.pickle")
+#visualize("Neuroevolution_Experiment/neat_progress.pickle")
+visualize("Random_Experiment/random_esn_scores_mc_mmse.pickle", plot_progress = False)

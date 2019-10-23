@@ -22,65 +22,15 @@ from ddeint import ddeint
 from functools import partialmethod
 from functools import partial
 
-sys.path.append(os.path.join(os.path.split(__file__)[0],'..','..'))
+sys.path.append(sys.path[0] + "/..") # Adds higher directory to python modules path in order to get files from there imported
+#sys.path.append(os.path.join(os.path.split(__file__)[0],'..','..'))
 from peas.methods.neat import NEATPopulation, NEATGenotype
 from peas.networks.rnn import NeuralNetwork
 
-import narma_mmse_esn
+import benchmark_esns
 
 
-# Testing Neat without ESN code on mackey_glass timeseries, partly copied from neat examples
-class ESNTask_internal(object):
-
-    mg = np.load('mackey_glass_t17.npy')
-    INPUTS  = [(m,) for m in mg[:2000]]
-    OUTPUTS = [(m,) for m in mg[1:2001]]
-    EPSILON = 1e-100
-
-    def __init__(self):
-        self.INPUTS = np.array(self.INPUTS, dtype=float)
-        self.OUTPUTS = np.array(self.OUTPUTS, dtype=float)
-
-    def evaluate(self, network, verbose=False):
-        if not isinstance(network, NeuralNetwork):
-            network = NeuralNetwork(network)
-
-        if not network.node_types[-1](-1000) < -0.95:
-            raise Exception("Network should be able to output value of -1, e.g. using a tanh node.")
-
-        pairs = list(zip(self.INPUTS, self.OUTPUTS))
-
-        for (i, target) in pairs[:1000]:
-            # Feed with bias
-            output = network.feed(i)
-
-        graph = [list(),list()]
-        rmse = 0.0
-        for (i, target) in pairs[1000:2000]:
-            # Feed with bias
-            output = network.feed(i)
-
-            # Grab the output
-            output = output[-len(target):]
-            graph[0].append(target)
-            graph[1].append(output)
-
-            err = (target - output)
-            #err[abs(err) < self.EPSILON] = 0;
-            err = (err ** 2).mean()
-            # Add error
-            #print(("%r -> %r (should: %r) (%.2f)" % (i, output, target, err)))
-            rmse += err
-        #print("E",rmse)
-        score = 1/(1+np.sqrt(rmse / len(pairs[1000:2000])))
-        #print("S",score)
-        return {'fitness':score,'graph':graph}
-
-    def solve(self, network):
-        score = self.evaluate(network)
-        return score['fitness'] > 0.9
-
-#evaluate a network evolved by neat using ESN with mackey_glass
+#evaluate a reservoir evolved by neat
 class ESNTask_external(object):
 
     def __init__(self, ESN_arch, esn_repetitions):
@@ -99,7 +49,7 @@ class ESNTask_external(object):
         # Taking the mean fitness value of multiple ESN-runs and -trainings to get steadier results
         for run in range(self.esn_repetitions):
             #set up ESN with weight matrices from NEAT (input, bias, reservoir)-weights; output weights are trained in ESN
-            esn_instance = narma_mmse_esn.esn(self.ESN_arch, matrices, spectral_radius = None)
+            esn_instance = benchmark_esns.esn(self.ESN_arch, matrices, spectral_radius = None)
             #Run task in ESN and get performances on narma and mmse
             mc, mmse, narma = esn_instance.calc_esn()
             mcs.append(mc)
@@ -130,7 +80,7 @@ class ESNTask_external(object):
 
     def solve(self, genotype):
         score = self.evaluate(genotype)
-        return score['fitness'] > 30
+        return score['fitness'] > 2
 
     def get_weight_matrices(self, genotype):
 
@@ -235,11 +185,6 @@ def load_neat_state(statefile, neat_iterations = 1000):
         pop = dill.load(input_file)
         task = dill.load(input_file)
 
-    for genotype in pop.population:
-        genotype.stdev_mutate_weight = 0.009
-        genotype.prob_mutate_weight = 0.05
-        genotype.prob_reset_weight = 0.02
-
     return task, pop, neat_iterations
 
 #Called after every neat generation, just for saving each generation's fitness
@@ -265,7 +210,7 @@ def epoch_callback(self, task):
         dill.dump(task, output_file)
 
 
-start_anew = False #either initialize new neat run or load earlier started one
+start_anew = True #either initialize new neat run or load earlier started one
 if start_anew:
     task, population, neat_iterations = init(n_reservoir_units = 150, neat_population_size = 100)
 else:

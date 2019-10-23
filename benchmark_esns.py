@@ -7,7 +7,7 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 
-from ESN_CELL import *
+from esn_cell import *
 from ddeint import ddeint
 
 #Instanciates, runs and trains an ESN as implemented in ESN_CELL.py

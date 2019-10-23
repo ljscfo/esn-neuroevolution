@@ -4,16 +4,18 @@ Generates random echo state networks; their performance on NARMA and MMSE tasks 
  writes results to file
 """
 
-import narma_mmse_esn
 import numpy as np
 import random
-
 import dill
+
+import sys
+sys.path.append(sys.path[0] + "/..") # Adds higher directory to python modules path in order to get files from there imported
+from benchmark_esns import esn
 
 #Creates n_esns esns with spectral radii in range [spectral_radius_from, spectral_radius_to]
 # and calls run_esn()
 # if append_results: appends results to existing file with results of previous experiment append results from run_esn() to resultfile
-def experiment(n_esns = 100, spectral_radius_from = 1, spectral_radius_to = 1.2, resultfile = "random_esn_scores.pickle", append_results = False):
+def experiment(n_esns = 100, spectral_radius_from = 0, spectral_radius_to = 2, resultfile = "random_esn_scores.pickle", append_results = False):
     res_units = 150
     in_units = 1
     out_units = 301
@@ -61,7 +63,7 @@ def run_esn(ESN_arch, spectral_radius = 1, n_iterations = 3):
     # Taking the mean fitness value of multiple ESN-runs and -trainings to get steadier results
     for run in range(n_iterations):
         #set up ESN with weight matrices from NEAT (input, bias, reservoir)-weights; output weights are trained in ESN
-        esn_instance = narma_mmse_esn.esn(ESN_arch, spectral_radius = spectral_radius)
+        esn_instance = esn(ESN_arch, spectral_radius = spectral_radius)
         #Run task in ESN and get performances on narma and mmse
         mc, mmse, narma = esn_instance.calc_esn()
         mcs.append(mc)
@@ -83,4 +85,4 @@ def run_esn(ESN_arch, spectral_radius = 1, n_iterations = 3):
 
     return {'fitness':score, 'mc':mc, 'std_mc':std_mc,'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'lyapunov': lyapunov}
 
-experiment(200, resultfile = "random_esn_scores_50.pickle", append_results = False)
+experiment(300, resultfile = "random_esn_scores.pickle", append_results = False)
