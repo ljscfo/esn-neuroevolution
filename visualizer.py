@@ -1,30 +1,28 @@
+"""
+Visualize results gained during random- and neuroevolution-experiment
+Call visualize(file_with_results [,parameters]) as done at the bottom of this files
+"""
+
 import dill
 import matplotlib.pyplot as plt
 
 def postprocess(scores):
-
-
+    #Filter data, like remove uninteresting areas of spectral_radii
     to_delete = []
-    """
+
     for idx, element in enumerate(scores["spectral_radius"]):
         if element > 20:
             to_delete.append(idx)
 
-    for idx, element in enumerate(scores["mmse"]):
-        if element > 8:
-            to_delete.append(idx)
-
-    for idx, element in enumerate(scores["narma"]):
-        if element > 2.6:
-            to_delete.append(idx)
-    """
-
-    scores['std_mc'] = [std/mc for std,mc in zip(scores['std_mc'],scores['mc'])]
-    scores['std_mmse'] = [std/mc for std,mc in zip(scores['std_mmse'],scores['mmse'])]
-
-
     for idx in sorted(list(set(to_delete)), reverse = True):
         scores = del_index(scores, idx)
+
+    """
+    #Replace resultfile with postprocessed one
+    with open(resultfile, "wb") as output_file:
+        dill.dump(scores, output_file)
+    """
+
     return scores
 
 def del_index(scores, index):
@@ -34,78 +32,54 @@ def del_index(scores, index):
 
 
 #visualizes scores aquired neat algorithm, stored in resultfile
-def visualize(resultfile):
+def visualize(resultfile, amount_y_axis = 2, plot_progress = False, make_relative_standard_deviations = True):
 
     with open(resultfile, "rb") as input_file:
         scores = dill.load(input_file)
 
-    scores = postprocess(scores)
+    #scores = postprocess(scores)
 
-    with open(resultfile, "wb") as output_file:
-        dill.dump(scores, output_file)
-    
-    #Scores["error"]=[1/i for i in Scores["error"]]
+    if make_relative_standard_deviations:
+        #make standard deviations relative
+        scores['std_mc'] = [std/mc for std,mc in zip(scores['std_mc'],scores['mc'])]
+        scores['std_mmse'] = [std/mmse for std,mmse in zip(scores['std_mmse'],scores['mmse'])]
+        scores['std_narma'] = [std/narma for std,narma in zip(scores['std_narma'],scores['narma'])]
 
-    #plt.plot(Scores["fitness"], label = "Fitness")
-    #plt.plot(Scores["lyapunov"], label = "Lyapunov")
-
-    if (False):
-
-        fig = plt.figure()
-
-        ax1 = fig.add_subplot(111)
-        ax1.plot(Scores["fitness"], 'b*' ,label = "fitness")
-        ax1.plot(Scores["narma"], 'b+', label = "narma")
-        ax1.plot(Scores["mmse"], 'bx', label = "mmse")
-        ax1.set_ylabel('fitness', color="b")
-        for tl in ax1.get_yticklabels():
-            tl.set_color('b')
-
-        ax1.legend()
-
-        ax2 = ax1.twinx()
-        ax2.plot(Scores["lyapunov"], "r-", label = "lyapunov")
-        ax2.set_ylabel('lyapunov', color='r')
-        for tl in ax2.get_yticklabels():
-            tl.set_color('r')
-
+    if plot_progress:
+        #Scores["error"]=[1/i for i in Scores["error"]]
+        plt.plot(scores["fitness"], label = "Fitness")
+        plt.plot(scores["lyapunov"], label = "Lyapunov")
+        plt.grid()
         plt.legend()
-
-        #plt.xlabel("Iteration")
-        #plt.ylabel("Fitness")
-        #plt.legend()
         plt.show()
 
 
-    amount_axis = 2
-
-    fig = plt.figure(figsize=(3.1+amount_axis*0.6,2.3))
-
+    fig = plt.figure(figsize=(3.1+amount_y_axis*0.6,2.3))
 
     ax1 = fig.add_subplot(111)
 
-    ax1.plot(scores["spectral_radius"],scores["mc"],marker = '.', markersize = 3, linewidth = 0, color = 'black', zorder = 2)
+    ax1.plot(scores["lyapunov"],scores["mmse"],marker = '.', markersize = 3, linewidth = 0, color = 'black', zorder = 2)
     #ax1.plot(scores["spectral_radius"],scores["std_mc"],marker = '.', markersize = 2, linewidth = 0, color = 'red')
 
-    ax1.set_ylabel('MC', color="black")
+    ax1.set_ylabel('narma', color="black")
     for tl in ax1.get_yticklabels():
         tl.set_color('black')
-    ax1.set_xlabel('spectral radius ')
+    ax1.set_xlabel('lyapunov')
     ax1.grid(linestyle='--', linewidth=0.5)
-    ax1.set_xlim([-0.17,0.12])
+    #ax1.set_xlim([0.1,2.7])#[-0.17,0.12])
     #ax1.set_ylim([0.87,1.4])
-    ax1.margins(0.165)
+    #ax1.margins(0.165)
 
-    if (amount_axis == 2):
+    if (amount_y_axis == 2):
         ax2 = ax1.twinx()
 
-        ax2.plot(scores["spectral_radius"],scores["std_mc"],marker = '.', markersize = 1.3, linewidth = 0, color = 'red', zorder = 1)
-        ax2.set_ylim([-0.095,0.7])
+        ax2.plot(scores["lyapunov"],scores["mc"],marker = '.', markersize = 1.3, linewidth = 0, color = 'red', zorder = 1)
+        #ax2.set_ylim([-0.095,0.7])
 
-        ax2.set_ylabel('relative std.dev.', color='r')
+        ax2.set_ylabel('mc not relative std.dev.', color='r')
         for tl in ax2.get_yticklabels():
             tl.set_color('r')
-        ax2.margins(0.165)
+        #ax2.margins(0.165)
 
     #plt.grid(linestyle='--', linewidth=0.5)
     #plt.xlabel("lyapunov exponent")
@@ -114,4 +88,6 @@ def visualize(resultfile):
     plt.show()
 
 #TODO: file as command line argument
-visualize("random_esn_scores_mc_mmse_2.pickle")
+visualize("neat_progress.pickle")
+#visualize("random_esn_scores_narma.pickle")
+#visualize("random_esn_scores_small_res.pickle")
