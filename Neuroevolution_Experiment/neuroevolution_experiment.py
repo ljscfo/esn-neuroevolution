@@ -73,7 +73,7 @@ class ESNTask_external(object):
     def calc_lyapunov(self, genotype):
         matrices = self.get_weight_matrices(genotype)
         #set up ESN with weight matrices from NEAT
-        esn_instance = narma_mmse_esn.esn(self.ESN_arch, matrices, spectral_radius = None)
+        esn_instance = benchmark_esns.esn(self.ESN_arch, matrices, spectral_radius = None)
 
         lyapunov = esn_instance.calc_lyapunov()
         return lyapunov
