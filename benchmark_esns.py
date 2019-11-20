@@ -15,15 +15,15 @@ class esn:
 
     #Plotting some network-output diagrams
     Plotting = False
-    Input_range = (-1,1)
+    Input_range = (0,0.5)
 
-    def __init__(self, ESN_arch, weight_matrices = None, spectral_radius = 1):
+    def __init__(self, ESN_arch, weight_matrices = None, spectral_radius = None):
 
         self.ESN_arch = ESN_arch
         in_units = self.ESN_arch[0]
         leakrate = 0.2
         activation = np.tanh
-        weights_variance = 0.1
+        weights_variance = 0.1 #note that weigths get scaled afterwards if spectral_radius is set
         sparsity = 0.1
 
         self.esn = ESN(self.ESN_arch, activation, leakrate, weights_variance, sparsity, weight_matrices, spectral_radius)

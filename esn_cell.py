@@ -7,7 +7,7 @@ class ESN():
 
     d_0 = np.random.normal(size=[], loc=1e-12, scale=1e-13)
 
-    def __init__(self, ESN_arch, activation=np.tanh, leak_rate=0.0, weights_std=0.1, sparsity=0.1, weights_external = None, set_spectral_radius = 1):
+    def __init__(self, ESN_arch, activation=np.tanh, leak_rate=0.0, weights_std=0.1, sparsity=0.1, weights_external = None, set_spectral_radius = None):
 
         """
         Args:
@@ -138,7 +138,7 @@ class ESN():
             new weights that linarly map res_states to corresponding target values, shape [self.res_units x self.out_units]
         """
 
-        ridge = Ridge(alpha=0.0000001, fit_intercept = False)#, fit_intercept = True, normalize = True)
+        ridge = Ridge(alpha=0.000000002, fit_intercept = False)#, fit_intercept = True, normalize = True)
         #packed_targets = [(target) for target in targets]
         ridge.fit(res_states, targets)
         #print(res_states.shape,targets.shape,ridge.coef_.shape)
