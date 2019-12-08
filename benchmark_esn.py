@@ -1,6 +1,7 @@
 """
-Testing ESN with the NARMA and MMSE task
-  implementation of ESN is in ESN_CELL.py
+Applies MC, MMSE and NARMA benchmark tasks to ESNs
+  esn's object's parameter input_range defines the range of the uniformly distributed range of random input ([-1; 1] for MC and MMSE, [0; 0.5] for NARMA)
+  implementation of ESN is in esn_cell.py (name still right??)
 """
 
 import numpy as np
@@ -10,30 +11,28 @@ import matplotlib.pyplot as plt
 from esn_cell import *
 from ddeint import ddeint
 
-#Instanciates, runs and trains an ESN as implemented in ESN_CELL.py
+#Instantiates, runs and trains an ESN as implemented in ESN_CELL.py
 class esn:
 
     #Plotting some network-output diagrams
     Plotting = False
-    Input_range = (0,0.5)
 
-    def __init__(self, ESN_arch, weight_matrices = None, spectral_radius = None):
+    #note that weigths get scaled afterwards if spectral_radius is set
+    def __init__(self, ESN_arch, input_range, weights_variance = 0.1, sparsity = 0.1, leakrate = 0.15, activation = np.tanh, weight_matrices = None, spectral_radius = None):
 
         self.ESN_arch = ESN_arch
-        in_units = self.ESN_arch[0]
-        leakrate = 0.2
-        activation = np.tanh
-        weights_variance = 0.1 #note that weigths get scaled afterwards if spectral_radius is set
-        sparsity = 0.1
+        self.input_range = input_range
 
-        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_variance, sparsity, weight_matrices, spectral_radius)
+        in_units = self.ESN_arch[0]
+
+        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_variance, bias_std = 0, sparsity = sparsity, weights_external = weight_matrices, set_spectral_radius = spectral_radius)
 
         X_t, Y_t = self.prepare_narma()
         self.X_t = X_t
         self.Y_t = Y_t[0:6000]
 
         for k in range(1,301):
-            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(self.Input_range[0],self.Input_range[1],300),X_t[300-k:6000-k])))) #Desired output for mmse/mc
+            self.Y_t = np.vstack((self.Y_t,np.hstack((np.random.uniform(self.input_range[0],self.input_range[1],300),X_t[300-k:6000-k])))) #Desired output for mmse/mc
 
         self.Y_t = np.swapaxes(self.Y_t,0,1)
 
@@ -44,23 +43,13 @@ class esn:
         self.input_post = self.X_t[4000:6000].reshape([in_units, 2000]) #For testing trained readout's performance
         self.train_targets = self.Y_t[2000:4000,:] # desired output for narma (node 0) and mmse (nodes 1 to last)
 
-        #self.plot_train_data()
 
-    #Plot some data the network is trained on
-    # out_node_idx indicates the node for which the target values should be plotted
-    def plot_train_data(self, out_node_idx = 0):
-        plt.plot(self.X_t[2000:2500], label ="Input")
-        plt.plot(self.train_targets[0:500, out_node_idx], label="Target values") #Targets
-        plt.legend()
-        plt.show()
-        #assert False
-
-    #Prepare data for timeseries
+    #Prepare input and target timeseries for NARMA
     def prepare_narma(self):
         length = 7000
         order = 30
 
-        X_t = np.random.uniform(self.Input_range[0],self.Input_range[1],length+order)
+        X_t = np.random.uniform(self.input_range[0],self.input_range[1],length+order)
         Y_t = np.zeros(order)
 
         for _,t in enumerate(range(order,order+length)):
@@ -71,8 +60,8 @@ class esn:
 
         return X_t, Y_t
 
-    #Feed input into ESN and make it calculate timesteps as well as training
-    #returns mean squared error of trained readout in comparison to desired output
+    #Feeds input into ESN and makes it calculate timesteps as well as training
+    #returns benchmark scores of trained output in comparison to target output
     def calc_esn(self):
 
         _, res_state, outputs1 = self.esn.res_states(self.input_pre, np.zeros((1,self.ESN_arch[1])), compute_readout = True)
@@ -87,8 +76,6 @@ class esn:
         #Memory capacity
         mc = 0
         for delay in range(1,300):
-            #print("pearson2:",scipy.stats.pearsonr(self.Y_t[4000:6000,delay],outputs3[:,delay])[0])
-            #print("  cov:",np.cov(self.Y_t[4000:6000,delay].flatten(),outputs3[:,delay].flatten()))
             mc = mc + scipy.stats.pearsonr(self.Y_t[4000:6000,delay],outputs3[:,delay])[0]**2 #squared pearson correlation
 
         #mse = np.sum(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000])))/len(outputs3)
@@ -98,7 +85,7 @@ class esn:
 
         return mc, mmse, narma_error
 
-    #Plot output and target values of node with index out_node_idx
+    #Plot output (parameter data) and target values of node with index node_idx
     # frequency indicates how often a plot is produced by setting the range of a random generator
     def plot_network_output(self, data, node_idx = 0, frequency = 1):
         #Plot target values and predicted values
@@ -113,11 +100,12 @@ class esn:
             plt.xlim(20,80)
             #plt.legend()
             plt.show()
-            assert False
+            assert False #End program after diagram is shown
 
     def calc_lyapunov(self):
         return self.esn.lyapunov_exponent(self.input_pre,np.zeros((1,self.ESN_arch[1])))
 
+#Testing
 def __main__():
     esn_ins = esn((1,8,1))
     esn_ins.calc_esn()

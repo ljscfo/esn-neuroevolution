@@ -1,7 +1,12 @@
 """
-Generates random echo state networks; their performance on NARMA and MMSE tasks is measured
+Generates random echo state networks; their performance on MC, MMSE and NARMA tasks is measured
  and the lyapunov exponent for each network is evaluated
- writes results to file
+ the experiment's parameters are part of experiment's class:
+    n_esns: amount of esns to be evaluated
+    size_esn: the esns' amount of reservoir neurons
+    spectral_radius_from, spectral_radius_to: uniformly distributed range of spectral radii of the experiment's reservoirs
+    resultfile: file in which the experiment's results are stored
+    append_results: whether results are stored in a new file (resultfile) or appended to an existing file (resultfile)
 """
 
 import numpy as np
@@ -10,13 +15,13 @@ import dill
 
 import sys
 sys.path.append(sys.path[0] + "/..") # Adds higher directory to python modules path in order to get files from there imported
-from benchmark_esns import esn
+from benchmark_esn import esn
 
 #Creates n_esns esns with spectral radii in range [spectral_radius_from, spectral_radius_to]
 # and calls run_esn()
 # if append_results: appends results to existing file with results of previous experiment append results from run_esn() to resultfile
-def experiment(n_esns = 100, spectral_radius_from = 0, spectral_radius_to = 2, resultfile = "random_esn_scores.pickle", append_results = False):
-    res_units = 150
+def experiment(n_esns = 100, size_esn = 150, spectral_radius_from = 1, spectral_radius_to = 4, resultfile = "random_esn_scores.pickle", append_results = False):
+    res_units = size_esn
     in_units = 1
     out_units = 301
     ESN_arch = [in_units, res_units, out_units]
@@ -85,4 +90,6 @@ def run_esn(ESN_arch, spectral_radius = 1, n_iterations = 3):
 
     return {'fitness':score, 'mc':mc, 'std_mc':std_mc,'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'lyapunov': lyapunov}
 
-experiment(300, resultfile = "random_esn_scores.pickle", append_results = False)
+
+
+experiment(300, size_esn = 50, resultfile = "random_esn_scores_testing_lyapfunc1.pickle", append_results = False)
