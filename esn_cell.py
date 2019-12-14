@@ -147,7 +147,7 @@ class ESN():
           perturbation_order: the order of perturbation of the state of the ESN
 
         Returns:
-          A tuple (lyapunov_exp, df_n_avgdist)
+          A tuple (lyapunov_exp, percent_nof_samples)
         """
 
         pert_ord = perturbation_order
@@ -162,6 +162,9 @@ class ESN():
         
         # length of discarded initial transient
         init_transient = 999
+        
+        # No. of samples for computing Lyapunov Exponent
+        target_nof_samples = len_in-init_transient-1
 
         #df_n_avgdist = pd.DataFrame(columns=['Perturbed_Neuron','Initial_Perturbation','Avg_Dist'])
         ln_d1_d0 = []
@@ -202,6 +205,8 @@ class ESN():
                     
             #df_n_avgdist.loc[pert_n+1] = [pert_n+1, d_0, np.mean(dist_esns)]
 
-        lyapunov_exp = np.mean(ln_d1_d0)
+        LE = np.mean(ln_d1_d0)
         
-        return lyapunov_exp, ln_d1_d0
+        percent_nof_samples = (len(ln_d1_d0)/target_nof_samples)*100
+        
+        return LE, percent_nof_samples
