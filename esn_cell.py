@@ -164,7 +164,7 @@ class ESN():
         init_transient = 999
         
         # No. of samples for computing Lyapunov Exponent
-        target_nof_samples = len_in-init_transient-1
+        target_nof_samples = (len_in-init_transient-1)*self.res_units
 
         #df_n_avgdist = pd.DataFrame(columns=['Perturbed_Neuron','Initial_Perturbation','Avg_Dist'])
         ln_d1_d0 = []
