@@ -1,7 +1,7 @@
 """
 Applies MC, MMSE and NARMA benchmark tasks to ESNs
   esn's object's parameter input_range defines the range of the uniformly distributed range of random input ([-1; 1] for MC and MMSE, [0; 0.5] for NARMA)
-  implementation of ESN is in esn_cell.py (name still right??)
+  implementation of ESN is in esn_cell.py
 """
 
 import numpy as np
@@ -11,21 +11,20 @@ import matplotlib.pyplot as plt
 from esn_cell import *
 from ddeint import ddeint
 
-#Instantiates, runs and trains an ESN as implemented in ESN_CELL.py
+#Instantiates, runs and trains an ESN as implemented in esn_cell.py
 class esn:
 
     #Plotting some network-output diagrams
     Plotting = False
 
-    #note that weigths get scaled afterwards if spectral_radius is set
-    def __init__(self, ESN_arch, input_range, weights_variance = 0.1, sparsity = 0.1, leakrate = 0.15, activation = np.tanh, weight_matrices = None, spectral_radius = None):
+    def __init__(self, ESN_arch, input_range, weights_std = 0.1, sparsity = 0.1, leakrate = 0.15, activation = np.tanh, weight_matrices = None):
 
         self.ESN_arch = ESN_arch
         self.input_range = input_range
 
         in_units = self.ESN_arch[0]
 
-        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_variance, bias_std = 0, sparsity = sparsity, weights_external = weight_matrices, set_spectral_radius = spectral_radius)
+        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_std, bias_std = 0, sparsity = sparsity, weights_external = weight_matrices)
 
         X_t, Y_t = self.prepare_narma()
         self.X_t = X_t
@@ -36,11 +35,10 @@ class esn:
 
         self.Y_t = np.swapaxes(self.Y_t,0,1)
 
-        #split data
-        #TODO: work on inconsistent shape
-        self.input_pre = self.X_t[0:2000].reshape([in_units, 2000]) #Heat up/Stabilize ESN
-        self.input_train = self.X_t[2000:4000].reshape([in_units, 2000]) #Inputs used for training
-        self.input_post = self.X_t[4000:6000].reshape([in_units, 2000]) #For testing trained readout's performance
+        #split data (works for one input neuron only)
+        self.input_pre = self.X_t[0:2000].reshape([2000, in_units]) #Heat up/Stabilize ESN
+        self.input_train = self.X_t[2000:4000].reshape([2000, in_units]) #Inputs used for training
+        self.input_post = self.X_t[4000:6000].reshape([2000, in_units]) #For testing trained readout's performance
         self.train_targets = self.Y_t[2000:4000,:] # desired output for narma (node 0) and mmse (nodes 1 to last)
 
 
@@ -103,7 +101,10 @@ class esn:
             assert False #End program after diagram is shown
 
     def calc_lyapunov(self):
-        return self.esn.lyapunov_exponent(self.input_pre,np.zeros((1,self.ESN_arch[1])))
+        return self.esn.lyapunov_exponent(self.input_pre,np.zeros((1,self.ESN_arch[1])))[0]
+
+    def get_spectral_radius(self):
+        return self.esn.spectral_radius
 
 #Testing
 def __main__():

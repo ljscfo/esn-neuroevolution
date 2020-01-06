@@ -1,14 +1,22 @@
 
 """
-Evolve Echo State Networks (ESNs) using NEAT neuroevolution algorithm
+Evolve Echo State Networks (capital or not??) (ESNs) using NEAT neuroevolution algorithm
+ in this experiment, neuroevolution is applied to initially random connection weights
+ output nodes' weights of ESN are trained in ESN_CELL.py(still??)
 
-ESN code is implemented in ESN_CELL.py and gets instanciated in Testing_ESN.py
-  Task for evaluating performance of ESN is timeseries prediction using mackey glass equation
+ESN code is implemented in ESN_CELL.py??still and gets instantiated in benchmark_esn.py, where MC, MMSE and NARMA benchmarks are applied
 
-NEAT is used to evolve reservoir nodes and connections which are normally just random
-The readout/output weights of ESN are trained in ESN_CELL.py each time Network gets changed by NEAT
+parameters are defined via init() method
+    reservoir_size: the esns' amount of reservoir neurons
+    reservoir_sparsity: sparsity of the reservoirs
+    input_range: uniform random range from which the input's timeseries is generated (we used (0,0.5))
+    neat_iterations: number of neuroevolution's generations
+    neat_population_size: amount of individuals for the neuroevolution
+    esn_repetitions: how often to repeat benchmark calculations for one reservoir (mean is taken)
+    spectral_radius: normally None, otherwise reservoirs' spectral radii are always set to that value
+    neat_state_file: storage file for experiment's progress, in order to able to interrupt and continue an experiment
+    start_anew = True ): #either start and initialize new neat run or load earlier started one
 
-Top level parameters for ESN and NEAT are defined via init() method
 """
 
 import sys
@@ -22,36 +30,36 @@ from ddeint import ddeint
 from functools import partialmethod
 from functools import partial
 
-sys.path.append(sys.path[0] + "/..") # Adds higher directory to python modules path in order to get files from there imported
-#sys.path.append(os.path.join(os.path.split(__file__)[0],'..','..'))
+sys.path.append(sys.path[0] + "/..") # Adds parent directory to python modules path in order to get files from there imported
 from peas.methods.neat import NEATPopulation, NEATGenotype
 from peas.networks.rnn import NeuralNetwork
 
-import benchmark_esns
+import benchmark_esn
 
 
-#evaluate a reservoir evolved by neat
+#evaluates a reservoir evolved by neat
 class ESNTask_external(object):
 
-    def __init__(self, ESN_arch, esn_repetitions, spectral_radius = None):
+    def __init__(self, ESN_arch, input_range, esn_repetitions):
         self.ESN_arch = ESN_arch
         self.esn_repetitions = esn_repetitions
-        self.spectral_radius = spectral_radius
+        self.input_range = input_range
 
     def evaluate(self, genotype):
+        #get fitness value and benchmark scores for an individual (NEATGenotype)
+
         matrices = self.get_weight_matrices(genotype)
 
         mcs = []
         mmses=[]
         narmas=[]
 
-        #todo: look at variance of repetitions against score, by that seeing what may cause not-convergence
         #Because of the randomness involved, training of same ESN results in different readout weights
         # Taking the mean fitness value of multiple ESN-runs and -trainings to get steadier results
         for run in range(self.esn_repetitions):
             #set up ESN with weight matrices from NEAT (input, bias, reservoir)-weights; output weights are trained in ESN
-            esn_instance = benchmark_esns.esn(self.ESN_arch, matrices, spectral_radius = self.spectral_radius)
-            #Run task in ESN and get performances on narma and mmse
+            esn_instance = benchmark_esn.esn(self.ESN_arch, input_range = self.input_range, weight_matrices = matrices)
+            #Run task in ESN and get performances on mc, mmse and narma
             mc, mmse, narma = esn_instance.calc_esn()
             mcs.append(mc)
             mmses.append(mmse)
@@ -67,29 +75,28 @@ class ESNTask_external(object):
         std_narma = np.std(narmas)
 
         fitness = 2-narma-mmse
-        #score = mc
 
         return {'fitness':fitness, 'mc':mc, 'std_mc':std_mc, 'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'spectral_radius':esn_instance.esn.spectral_radius}
 
     def calc_lyapunov(self, genotype):
         matrices = self.get_weight_matrices(genotype)
         #set up ESN with weight matrices from NEAT
-        esn_instance = benchmark_esns.esn(self.ESN_arch, matrices, spectral_radius = self.spectral_radius)
+        esn_instance = benchmark_esn.esn(self.ESN_arch, self.input_range, weight_matrices = matrices)
 
         lyapunov = esn_instance.calc_lyapunov()
         return lyapunov
 
     def solve(self, genotype):
+        #necessary function for NEAT but only dummy use here
         score = self.evaluate(genotype)
         return score['fitness'] > 2
 
     def get_weight_matrices(self, genotype):
+        #Converts NEATGenotype network data to weight matrices for ESN code
+
+        bias = 1 #1 if bias is included and not a seperate node, 0 otherwise
 
         matrix = genotype.get_network_data()[0]
-        #TODO: node types (activation) (which we find in genotype.get_network_data()[1])
-        #TODO: Check if bias is node or not (default False, but property of NEATGenotype)
-        #TODO: remove output stuff traces, should get simpler
-        bias = 1
 
         nodes = genotype.node_genes   #: [] Tuples of (fforder, type, bias, responsraininge, layer)
         self.ESN_arch=(self.ESN_arch[0], len(nodes)-self.ESN_arch[0],self.ESN_arch[2])
@@ -117,6 +124,8 @@ class ESNTask_external(object):
         weights_in = np.rot90(matrix[:,node_layer == 0][node_layer == 2,:])
         weights_bias = np.rot90(matrix[:,node_layer == 1][node_layer == 2,:])
         weights_reservoir = np.rot90(matrix[:,node_layer == 2][node_layer == 2,:])
+
+        #removed output weigths since they get trained via ridge regression
         #weights_out = np.rot90(matrix[:,node_layer == 2][node_layer == 3,:])
 
         #Pack matrices
@@ -135,7 +144,7 @@ class ESNTask_external(object):
         return matrices
 
 def random_topology(n_nodes, sparsity):
-    #just create tuples of kind (source_node, target_node) in a complicated way
+    #just creates tuples of kind (source_node, target_node) in a complicated way
 
     topology = defaultdict(lambda: 0)
 
@@ -151,75 +160,87 @@ def random_topology(n_nodes, sparsity):
     return topology
 
 #Initialize Neat and ESN
-def init(n_reservoir_units = 100, reservoir_sparsity = 0.1, neat_iterations = 1000, neat_population_size = 100, esn_repetitions = 3, spectral_radius = None):
-    #Defining node amounts for ESN
-    res_units = n_reservoir_units
-    in_units = 1
-    out_units = 301
-    ESN_arch = [in_units, res_units, out_units]
-    sparsity = reservoir_sparsity
-
-    neat_iterations = neat_iterations
-    neat_population_size = neat_population_size
+def init(reservoir_size = 100,
+        reservoir_sparsity = 0.1,
+        input_range = (-1,1),
+        neat_iterations = 1000,
+        neat_population_size = 100,
+        esn_repetitions = 3,
+        initial_weights_std = 0.12,
+        neat_state_file = "neat_progress.pickle", #neuroevolution state file
+        start_anew = True ): #either start and initialize new neat run or load earlier started one
 
     global Scores
-    Scores = {"fitness": [],"lyapunov": [], "mc": [], "std_mc":[], "mmse": [], "std_mmse": [] ,"narma": [], "std_narma":[], "spectral_radius":[]}
+    reset_population = start_anew
 
-    #TODO: Scaling of weigths regarding spectral radius is hidden for neat and done just in esn, is that the correct way?
-    topology = random_topology(res_units+in_units, sparsity = sparsity)
-    genotype = lambda: NEATGenotype(inputs = in_units,
-                                    outputs = 0,
-                                    topology = topology,
-                                    types=['tanh'],
-                                    feedforward = False,
-                                    prob_add_node = 0,
-                                    prob_add_conn = 0,
-                                    max_nodes = 51,
+    if not start_anew:
+        #loads earlier started neuroevolution state as to continue it
 
-                                    initial_weight_stdev = 0.01,
+        with open(neat_state_file, "rb") as input_file:
+            Scores = dill.load(input_file)
+            pop = dill.load(input_file)
+            task = dill.load(input_file)
+            # for indiv in pop.population:
+            #     indiv.prob_disable_conn=0.4
+            # #pop.compatibility_threshold = 0.1
+            # pop.compatibility_threshold_delta = 0.005
+            # ?? remove
 
-                                    prob_mutate_weight = 0.2,
-                                    stdev_mutate_weight = 0.02,
-                                    prob_reset_weight = 0.008,
+    else:
 
-                                    prob_mutate_bias=0.1,
-                                    stdev_mutate_bias = 0.01,
-                                    bias_as_node=False,
+        #Defining node amounts for ESN
+        res_units = reservoir_size
+        in_units = 1
+        out_units = 301
+        ESN_arch = [in_units, res_units, out_units]
+        sparsity = reservoir_sparsity
 
-                                    prob_reenable_conn=0.05,
-                                    prob_disable_conn=0.2, #how do I handle those??
-                                    #prob_reenable_parent=0.25,
+        neat_iterations = neat_iterations
+        neat_population_size = neat_population_size
 
-                                    weight_range=(-5., 5.),
+        Scores = {"fitness": [],"lyapunov": [], "mc": [], "std_mc":[], "mmse": [], "std_mmse": [] ,"narma": [], "std_narma":[], "spectral_radius":[]}
 
-                                    distance_excess=1.0,
-                                    distance_disjoint=1.0,
-                                    distance_weight=1.0)
-    # Create a population
-    pop = NEATPopulation(genotype, popsize = neat_population_size, target_species = neat_population_size/6, compatibility_threshold = 0.05, compatibility_threshold_delta = 0.0025) #min_elitism_size??
+        #TODO: Scaling of weigths regarding spectral radius is hidden for neat and done just in esn, is that the correct way?
+        topology = random_topology(res_units+in_units, sparsity = sparsity)
+        genotype = lambda: NEATGenotype(inputs = in_units,
+                                        outputs = 0,
+                                        topology = topology,
+                                        types=['tanh'],
+                                        feedforward = False,
+                                        prob_add_node = 0,
+                                        prob_add_conn = 0,
+                                        max_nodes = 51,
 
-    # Create a task
-    task = ESNTask_external(ESN_arch, esn_repetitions)
-    #task = ESNTask_internal() #instead for just testing NEAT
+                                        initial_weight_stdev = initial_weights_std,
 
-    return task, pop, neat_iterations
+                                        prob_mutate_weight = 0.2,
+                                        stdev_mutate_weight = 0.02,
+                                        prob_reset_weight = 0.008,
 
-#loads earlier started neuroevolution state as to continue it
-def load_neat_state(statefile, neat_iterations = 1000):
-    global Scores
-    with open(statefile, "rb") as input_file:
-        Scores = dill.load(input_file)
-        pop = dill.load(input_file)
-        task = dill.load(input_file)
-        # for indiv in pop.population:
-        #     indiv.prob_disable_conn=0.4
-        # #pop.compatibility_threshold = 0.1
-        # pop.compatibility_threshold_delta = 0.005
+                                        prob_mutate_bias=0.1,
+                                        stdev_mutate_bias = 0.01,
+                                        bias_as_node=False,
 
-    return task, pop, neat_iterations
+                                        prob_reenable_conn=0.05,
+                                        prob_disable_conn=0.2, #how do I handle those??
+                                        #prob_reenable_parent=0.25,
+
+                                        weight_range=(-5., 5.),
+
+                                        distance_excess=1.0,
+                                        distance_disjoint=1.0,
+                                        distance_weight=1.0)
+        # Create a population
+        pop = NEATPopulation(genotype, popsize = neat_population_size, target_species = neat_population_size/neat_population_size, compatibility_threshold = 5, compatibility_threshold_delta = 0.00) #min_elitism_size??
+
+        # Create a task
+        task = ESNTask_external(ESN_arch, input_range, esn_repetitions)
+        #task = ESNTask_internal() #instead for just testing NEAT
+
+    return task, pop, neat_iterations, reset_population, neat_state_file
 
 # Called after every neat generation, just for saving each generation's fitness
-def epoch_callback(self, task):
+def epoch_callback(self, task, state_file):
     global Scores
     Scores["fitness"].append(self.champions[-1].stats['fitness'])
     Scores["mc"].append(self.champions[-1].stats['mc'])
@@ -233,24 +254,22 @@ def epoch_callback(self, task):
     #calculate lyapunov exponent of champion
     lyapunov = task.calc_lyapunov(self.champions[-1])
     Scores["lyapunov"].append(lyapunov)
-    print("champs spectral r",self.champions[-1].stats['spectral_radius'], "lya:",lyapunov)
+    print("champs spectral radius",self.champions[-1].stats['spectral_radius'], "lyapunov exp:",lyapunov)
 
     # Save Scores, population, task to pickle file, as to enable possibility to interrupt neuroevolution
-    with open(neat_state_file, "wb") as output_file:
+    with open(state_file, "wb") as output_file:
         dill.dump(Scores, output_file)
         dill.dump(self, output_file) #Population
         dill.dump(task, output_file)
 
 
-start_anew = False #either initialize new neat run or load earlier started one
-neat_state_file = "neat_progress.pickle"
+#define experiment's parameters here:
+task, population, neat_iterations, reset_population, neat_state_file = init(reservoir_size = 80,
+                                                            input_range = (0,0.5),
+                                                            neat_population_size = 40,
+                                                            initial_weights_std = 1,
+                                                            neat_state_file = "neat_progress_2fromchaos.pickle",
+                                                            start_anew = True)
 
-if start_anew:
-    task, population, neat_iterations = init(n_reservoir_units = 50, neat_population_size = 40)
-else:
-    task, population, neat_iterations = load_neat_state(neat_state_file)
-
-population.epoch(generations=neat_iterations, evaluator=task, solution=task, callback=partial(epoch_callback, task=task), reset = start_anew)
-
-    #champion = pop.champions[-1]
-    #print("Lypunov Exponent:",task.calc_lyapunov(champion))
+#Run neuroevolution
+population.epoch(generations = neat_iterations, evaluator = task, solution = task, callback = partial(epoch_callback, task = task, state_file = neat_state_file), reset = reset_population)

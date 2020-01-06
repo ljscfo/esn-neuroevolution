@@ -32,13 +32,10 @@ def visualize(resultfile, amount_y_axis = 2, plot_progress = False, make_relativ
     with open(resultfile, "rb") as input_file:
         scores = dill.load(input_file)
 
-
-    #print("TOP:",min(scores["lyapunov"]))
-
-    #scores = postprocess(scores)
+    #Add calculated standard deviation of the fitness
+    scores['std_fitness'] = [std_narma + std_mmse for std_mmse,std_narma,mmse,narma in zip(scores['std_mmse'],scores['std_narma'],scores['mmse'],scores['narma'])]
 
     if make_relative_standard_deviations:
-        scores['std_fitness'] = [std_narma + std_mmse for std_mmse,std_narma,mmse,narma in zip(scores['std_mmse'],scores['std_narma'],scores['mmse'],scores['narma'])]
         #make standard deviations relative (except std_fitness)
         scores['std_mc'] = [std/mc for std,mc in zip(scores['std_mc'],scores['mc'])]
         scores['std_mmse'] = [std/mmse for std,mmse in zip(scores['std_mmse'],scores['mmse'])]
