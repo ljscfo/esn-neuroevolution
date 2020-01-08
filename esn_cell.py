@@ -3,6 +3,8 @@ import pandas as pd
 import copy
 
 from sklearn.linear_model import Ridge
+from idtxl.data import Data
+from idtxl.multivariate_te import MultivariateTE
 
 class ESN():
 
@@ -127,7 +129,7 @@ class ESN():
             new weights that linarly map res_states to corresponding target values, shape [self.res_units x self.out_units]
         """
 
-        ridge = Ridge(alpha=0.0000001, fit_intercept = False)#, fit_intercept = True, normalize = True)
+        ridge = Ridge(alpha=3e-9, fit_intercept = False)#, fit_intercept = True, normalize = True)
         #packed_targets = [(target) for target in targets]
         ridge.fit(res_states, targets)
         #print(res_states.shape,targets.shape,ridge.coef_.shape)
@@ -136,7 +138,7 @@ class ESN():
         return new_weights_out
 
     
-    def lyapunov_exponent(self, inputs, init_state, perturbation_order=1e-10):
+    def lyapunov_exponent(self, res_states=None, compute_res_states=False, inputs=None, init_state=None, perturbation_order=1e-12):
 
         """
         Computes Lyapunov Exponent of the ESN
@@ -152,7 +154,9 @@ class ESN():
 
         pert_ord = perturbation_order
         len_in = int(np.size(inputs)/self.in_units)
-        res_states = self.res_states(inputs=inputs, init_state=init_state)[0]
+        
+        if compute_res_states:
+            res_states = self.res_states(inputs=inputs, init_state=init_state)[0]
 
         # Instantiating a copy ESN
         copy_esn = ESN(self.ESN_arch, self.activation, self.leak_rate, self.weights_std, self.sparsity)
@@ -210,3 +214,61 @@ class ESN():
         percent_nof_samples = (len(ln_d1_d0)/target_nof_samples)*100
         
         return LE, percent_nof_samples
+    
+    
+    def transfer_entropy(self, res_states=None, compute_res_states=False, inputs=None, init_state=None):
+        
+        """
+        Computes Transfer Entropy of the ESN using 'IDTxl' library
+
+        Args:
+        
+        """
+        
+        sources_list = []
+        targets_list = []
+        nonzero_connect = 0
+        total_TE = 0
+        
+        for n in range(self.res_units):
+            sources = []
+            for i in range(self.res_units):
+                if self.sparse_mask[n][i] == 1.0:
+                    nonzero_connect += 1
+                    if i!=n:
+                        sources.append(i)
+            
+            if len(sources)!=0:
+                targets_list.append(n)
+                sources_list.append(sources)
+            
+        if compute_res_states:
+            res_states = self.res_states(inputs=inputs, init_state=init_state)[0]
+        
+        # length of discarded initial transient
+        init_transient = 999
+        
+        # Dataset for IDTxl MultivariateTE()
+        d = Data(res_states[init_transient:,:], dim_order='sp')
+        
+        # Settings for MultivariateTE() computation
+        settings = {'cmi_estimator': 'JidtKraskovCMI',
+                    'max_lag_sources': 2,
+                    'min_lag_sources': 1,
+                    'n_perm_max_stat': 200,
+                    'n_perm_min_stat': 200,
+                    'n_perm_omnibus': 400,
+                    'n_perm_max_seq': 400,
+                    'verbose':False}
+        
+        TE_results = MultivariateTE().analyse_network(settings=settings, data=d, 
+                                                   targets=targets_list, sources=sources_list)
+        
+        for i in targets_list:
+            
+            if TE_results.get_single_target(i, fdr=False).omnibus_te != None:
+                total_TE += TE_results.get_single_target(i, fdr=False).omnibus_te
+            
+        avg_TE = total_TE/len(targets_list)
+            
+        return TE_results, avg_TE, nonzero_connect
