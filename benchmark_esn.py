@@ -1,7 +1,19 @@
 """
 Applies MC, MMSE and NARMA benchmark tasks to ESNs
-  esn's object's parameter input_range defines the range of the uniformly distributed range of random input ([-1; 1] for MC and MMSE, [0; 0.5] for NARMA)
-  implementation of ESN is in esn_cell.py
+ implementation of ESN is in esn_cell.py, which gets instantiated here
+
+ create esn object and call its function calc_esn to perform the benchmark
+    __init__ function parameters:
+        ESN_arch: [no. of input units, no. of reservoir units, no. of output units]
+        input_range: defines the range of the uniformly distributed range of random input ([-1; 1] for MC and MMSE, [0; 0.5] for NARMA)
+        weights_std: standard deviation of the normal distribution the reservoir weights are randomly drawn from
+        sparsity: sparseness of the reservoir weight matrix, float of range [0,1]
+        leakrate: leaking rate of ESN
+        activation: reservoir's activation function (we use np.tanh)
+        weights_matrices: if None, reservoir weights are created randomly by esn_cell.py,
+          otherwise, a list of length 3 or 4 is expected, entries being weight matrices for input, bias, reservoir and optionally output
+
+    calc_esn() is parameterless and returns benchmark values as tuple (mc, msse, narma)
 """
 
 import numpy as np
@@ -17,6 +29,7 @@ class esn:
     #Plotting some network-output diagrams
     Plotting = False
 
+    #see head of file for description
     def __init__(self, ESN_arch, input_range, weights_std = 0.1, sparsity = 0.1, leakrate = 0.15, activation = np.tanh, weight_matrices = None):
 
         self.ESN_arch = ESN_arch
@@ -24,7 +37,7 @@ class esn:
 
         in_units = self.ESN_arch[0]
 
-        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_std, bias_std = 0, sparsity = sparsity, weights_external = weight_matrices)
+        self.esn = ESN(self.ESN_arch, activation, leakrate, weights_std, sparsity = sparsity, weights_external = weight_matrices)
 
         X_t, Y_t = self.prepare_narma()
         self.X_t = X_t
@@ -56,10 +69,12 @@ class esn:
         X_t = X_t[order:]
         Y_t = Y_t[order:]
 
+        print(X_t[0],Y_t[0:2])
+
         return X_t, Y_t
 
-    #Feeds input into ESN and makes it calculate timesteps as well as training
-    #returns benchmark scores of trained output in comparison to target output
+    #Feeds input into ESN and lets it calculate timesteps as well as training
+    #returns benchmark scores of trained output in comparison to target output as tuple (mc, msse, narma)
     def calc_esn(self):
 
         _, res_state, outputs1 = self.esn.res_states(self.input_pre, np.zeros((1,self.ESN_arch[1])), compute_readout = True)
@@ -68,7 +83,7 @@ class esn:
         self.esn.weights_out = new_weights
         _, _, outputs3 = self.esn.res_states(self.input_post, res_state, compute_readout = True)
 
-        narma_error = np.sqrt(np.mean(np.square(outputs3[:,0] - self.Y_t[4000:6000,0])) / np.var(self.Y_t[4000:6000,0]))
+        narma = np.sqrt(np.mean(np.square(outputs3[:,0] - self.Y_t[4000:6000,0])) / np.var(self.Y_t[4000:6000,0]))
         mmse = np.sqrt(np.mean(np.square(self.Y_t[4000:6000,1:]-outputs3[:,1:]))/np.var(self.X_t[0:6000]))
 
         #Memory capacity
@@ -76,12 +91,10 @@ class esn:
         for delay in range(1,300):
             mc = mc + scipy.stats.pearsonr(self.Y_t[4000:6000,delay],outputs3[:,delay])[0]**2 #squared pearson correlation
 
-        #mse = np.sum(np.square((np.reshape(outputs3,2000) - self.Y_t[4000:6000])))/len(outputs3)
-
         if self.Plotting:
             self.plot_network_output(np.vstack((outputs1,outputs2,outputs3)), 2, 1)
 
-        return mc, mmse, narma_error
+        return mc, mmse, narma
 
     #Plot output (parameter data) and target values of node with index node_idx
     # frequency indicates how often a plot is produced by setting the range of a random generator
@@ -105,8 +118,3 @@ class esn:
 
     def get_spectral_radius(self):
         return self.esn.spectral_radius
-
-#Testing
-def __main__():
-    esn_ins = esn((1,8,1))
-    esn_ins.calc_esn()

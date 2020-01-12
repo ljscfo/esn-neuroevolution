@@ -1,9 +1,8 @@
 """
-Instantiates echo state networks (implemented in esn_cell.py (name still?))
- their performance on MC, MMSE and NARMA benchmarks is measured
- and the lyapunov exponent for each network is evaluated
+Uses benchmark_esn.py to instantiate echo state networks which are implemented in esn_cell.py
+ their performance on MC, MMSE and NARMA benchmarks is measured and the lyapunov exponent for each network is evaluated
 
- the experiment's parameters are part of experiment class:
+ the experiment's parameters are the parameters of the function experiment:
     n_reservoirs: amount of esns to be evaluated
     reservoir_size: the esns' amount of reservoir neurons
     spectral_radius_from, spectral_radius_to: set uniformly distributed range of spectral radii of the experiment's reservoirs
@@ -22,7 +21,7 @@ from benchmark_esn import esn
 
 #Creates n_esns esns with spectral radii in range [spectral_radius_from, spectral_radius_to]
 # and calls run_esn()
-# if append_results: appends results to existing file with results of previous experiment append results from run_esn() to resultfile
+# see head of file for parameter descriptions
 def experiment(n_reservoirs = 100, reservoir_size = 150, weights_std_range = (0.1,0.3), input_range = (-1,1), resultfile = "random_esn_scores.pickle", append_results = False):
     res_units = reservoir_size
     in_units = 1
@@ -61,14 +60,13 @@ def experiment(n_reservoirs = 100, reservoir_size = 150, weights_std_range = (0.
 #Create n_repetitions esns with node amounts defined in ESN_arch and spectral_radius
 #Training and evaluation code is defined in benchmark_esn.py
 #MC, MMSE and NARMA scores are averaged over n_repetitions and returned alongside with standard deviation
-# ESN implementation is in esn_cell.py (still??)
+# ESN implementation is in esn_cell.py
 def run_esn(ESN_arch, weights_std, input_range, n_repetitions = 3):
 
     mcs = []
     mmses=[]
     narmas=[]
 
-    #todo: look at variance of repetitions against score, by that seeing what may cause not-convergence
     #Because of the randomness involved, training of same ESN results in different readout weights
     # Taking the mean fitness value of multiple ESN-runs and -trainings to get steadier results
     for run in range(n_repetitions):
@@ -96,4 +94,4 @@ def run_esn(ESN_arch, weights_std, input_range, n_repetitions = 3):
     return {'fitness':score, 'mc':mc, 'std_mc':std_mc,'mmse':mmse, 'std_mmse':std_mmse, 'narma':narma, 'std_narma':std_narma, 'lyapunov': lyapunov, 'spectral_radius':esn_instance.get_spectral_radius()}
 
 
-experiment(n_reservoirs = 300, reservoir_size = 150, weights_std_range = (0,2), input_range = (0,0.5), resultfile = "random_esn_scores_narma.pickle", append_results = True)
+experiment(n_reservoirs = 300, reservoir_size = 150, weights_std_range = (0,2), input_range = (0,0.5), resultfile = "random_esn_scores.pickle", append_results = False)
