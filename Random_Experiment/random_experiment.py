@@ -54,7 +54,7 @@ def experiment(n_reservoirs = 100, reservoir_size = 150, weights_std_range = (0.
         with open(resultfile, "wb") as output_file:
             dill.dump(scores, output_file)
 
-        print(i_esn+1,"/",n_reservoirs,"done; spectral radius:",score['spectral_radius'],"; weights_std:,", weights_std, "; score:",score)#fitness:",score['fitness'])
+        print(i_esn+1,"/",n_reservoirs,"done; ", "weights_std:", weights_std, ", score:",score)#fitness:",score['fitness'])
 
 
 #Create n_repetitions esns with node amounts defined in ESN_arch and spectral_radius

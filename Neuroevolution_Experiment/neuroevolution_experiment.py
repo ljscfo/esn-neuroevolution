@@ -248,7 +248,7 @@ def epoch_callback(self, task, state_file):
     #calculate lyapunov exponent of champion
     lyapunov = task.calc_lyapunov(self.champions[-1])
     Scores["lyapunov"].append(lyapunov)
-    print("champs spectral radius",self.champions[-1].stats['spectral_radius'], "lyapunov exp:",lyapunov)
+    print("champions spectral radius",self.champions[-1].stats['spectral_radius'], " lyapunov exponent:",lyapunov)
 
     # Save Scores, population, task to pickle file, as to enable possibility to interrupt neuroevolution
     with open(state_file, "wb") as output_file:
