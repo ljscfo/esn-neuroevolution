@@ -1,9 +1,8 @@
-import sys
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 #from pylab import *
 import pandas as pd
-import seaborn as sns
+#import seaborn as sns
 import time
 import pickle
 
@@ -13,7 +12,8 @@ import os
 os.getcwd()
 
 
-#______________________________TEST PARAMETERS__________________________________
+#%%______________________________TEST PARAMETERS__________________________________
+
 res_units = [100]
 in_units = 1
 
@@ -24,19 +24,19 @@ sparsity = [0.10]
 # Input of ESN
 esn_input = np.random.uniform(0, 0.5, size=[2000, in_units])
 
-# logs_beforeEOC = np.linspace(-3.5,-1.4,20)
-# logs_atEOC = np.linspace(-1.3,0,100)
-# logs_afterEOC = np.linspace(0.01,1.6,30)
+# logs_beforeEOC = np.linspace(-3.5,-1.4,20) # for Johannes
+# logs_atEOC = np.linspace(-1.39,0,100) # for Taher
+# logs_afterEOC = np.linspace(0.01,1.6,30) # for ...
 
 # list_weights_sd = np.exp(np.concatenate((logs_beforeEOC, logs_afterEOC)))
 
-logs = np.linspace(-1.4,0.7,100)
+logs = np.linspace(-1.39,0.7,100)
 list_weights_sd = np.exp(logs)
 
 len(list_weights_sd)
 # print(list_weights_std, '\n', logs_list)
 
-#___________________________ITERATIONS_________________________________________
+#%%___________________________ITERATIONS_________________________________________
 
 TE_AIS = pd.DataFrame(columns=['Reservoir_Size', 'Leak_Rate', 'Weights_SD', \
                            'Lyapunov_Exponent', 'Nof_Samples_(%)', 'TE', 'Nonzero_Connections', 'AIS'])
@@ -62,7 +62,7 @@ for res_size in res_units:
 
             reservoir_states = esn.res_states(inputs=esn_input, init_state=init_esn)[0]
             
-            LE, perc_nof_samples = esn.lyapunov_exponent(res_states=reservoir_states)
+            LE, perc_nof_samples = esn.lyapunov_exponent(res_states=reservoir_states, inputs=esn_input)
             
             _, te, nonzero = esn.transfer_entropy(res_states=reservoir_states)
             
