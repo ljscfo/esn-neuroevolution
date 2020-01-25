@@ -25,13 +25,11 @@ sparsity = [0.10]
 esn_input = np.random.uniform(0, 0.5, size=[2000, in_units])
 
 # logs_beforeEOC = np.linspace(-3.5,-1.4,20) # for Johannes
-# logs_atEOC = np.linspace(-1.39,0,100) # for Taher
+logs_atEOC = np.linspace(-1.39,0,100) # for Taher
 # logs_afterEOC = np.linspace(0.01,1.6,30) # for ...
 
 # list_weights_sd = np.exp(np.concatenate((logs_beforeEOC, logs_afterEOC)))
-
-logs = np.linspace(-1.39,0,100)
-list_weights_sd = np.exp(logs)
+list_weights_sd = np.exp(logs_atEOC)
 
 len(list_weights_sd)
 # print(list_weights_std, '\n', logs_list)
@@ -39,7 +37,7 @@ len(list_weights_sd)
 #%%___________________________ITERATIONS_________________________________________
 
 TE = pd.DataFrame(columns=['Reservoir_Size', 'Leak_Rate', 'Weights_SD', \
-                           'Lyapunov_Exponent', 'Nof_Samples_(%)', 'TE', 'Nonzero_Connections', 'AIS'])
+                           'Lyapunov_Exponent', 'Nof_Samples_(%)', 'TE', 'Nonzero_Connections'])
 
 te_results = {}
 
