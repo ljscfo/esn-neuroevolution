@@ -146,6 +146,8 @@ class ESN():
         Computes Lyapunov Exponent of the ESN
 
         Args:
+          res_states: the reservoir states to be used in computing LE, shape [<timeserieslength> x self.res_units]
+          compute_res_states: if True, then res_states are computed for the given 'inputs' and 'init_state'
           inputs: shape [<timeserieslength> x self.in_units]
           init_state: shape [1 x self.res_units]
           perturbation_order: the order of perturbation of the state of the ESN
@@ -154,11 +156,13 @@ class ESN():
           A tuple (lyapunov_exp, percent_nof_samples)
         """
 
-        pert_ord = perturbation_order
-        len_in = int(np.size(inputs)/self.in_units)
         
         if compute_res_states:
             res_states = self.res_states(inputs=inputs, init_state=init_state)[0]
+            len_in = int(np.size(res_states)/self.res_units)
+        else:
+            len_in = int(np.size(res_states)/self.res_units)
+        
 
         # Instantiating a copy ESN
         copy_esn = ESN(self.ESN_arch, self.activation, self.leak_rate, self.weights_std, self.sparsity)
@@ -177,7 +181,7 @@ class ESN():
 
         for pert_n in range(self.res_units):
 
-            d_0 = np.random.uniform(pert_ord, 1.1*pert_ord, size=[])
+            d_0 = np.random.uniform(perturbation_order, 1.1*perturbation_order, size=[])
             
             # Extracting Initial State for Copy of ESN
             init_copy_esn = copy.deepcopy(res_states[init_transient].reshape([1, self.res_units]))
@@ -201,7 +205,7 @@ class ESN():
 
                 if (d_1==0):
                     init_copy_esn = copy.deepcopy(res_states[init_transient+step].reshape([1, self.res_units]))
-                    d_0 = np.random.uniform(pert_ord, 1.1*pert_ord, size=[])
+                    d_0 = np.random.uniform(perturbation_order, 1.1*perturbation_order, size=[])
                     np.put(init_copy_esn, ind=pert_n, v=d_0+init_copy_esn[0][pert_n])
                 else:
                     ln_d1_d0.append(np.log(d_1/d_0))
@@ -224,6 +228,13 @@ class ESN():
         Computes Transfer Entropy of the ESN using 'IDTxl' library
 
         Args:
+          res_states: the reservoir states to be used in computing TE, shape [<timeserieslength> x self.res_units]
+          compute_res_states: if True, then res_states are computed for the given 'inputs' and 'init_state'
+          inputs: shape [<timeserieslength> x self.in_units]
+          init_state: shape [1 x self.res_units]
+
+        Returns:
+          A tuple of (TE_results, TE value for the network, nof_nonzero_connnections)
         
         """
         
@@ -235,7 +246,7 @@ class ESN():
         for n in range(self.res_units):
             sources = []
             for i in range(self.res_units):
-                if self.sparse_mask[n][i] == 1.0:
+                if self.sparse_mask[i][n] == 1.0:
                     nonzero_connect += 1
                     if i!=n:
                         sources.append(i)
@@ -282,6 +293,13 @@ class ESN():
         Computes Active Information Storage of the ESN using 'IDTxl' library
 
         Args:
+          res_states: the reservoir states to be used in computing AIS, shape [<timeserieslength> x self.res_units]
+          compute_res_states: if True, then res_states are computed for the given 'inputs' and 'init_state'
+          inputs: shape [<timeserieslength> x self.in_units]
+          init_state: shape [1 x self.res_units]
+
+        Returns:
+          A tuple of (AIS_results, AIS value for the network)
         
         """
         
@@ -291,7 +309,7 @@ class ESN():
         for n in range(self.res_units):
             sources = []
             for i in range(self.res_units):
-                if self.sparse_mask[n][i] == 1.0:
+                if self.sparse_mask[i][n] == 1.0:
                     if i!=n:
                         sources.append(i)
             
@@ -310,7 +328,7 @@ class ESN():
         
         # Settings for ActiveInformationStorage() computation
         settings = {'cmi_estimator': 'JidtKraskovCMI',
-                    'max_lag': 4,
+                    'max_lag': 3,
                     'n_perm_max_stat': 200,
                     'n_perm_min_stat': 200,
                     'n_perm_mi': 400,
