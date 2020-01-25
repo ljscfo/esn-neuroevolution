@@ -30,7 +30,7 @@ esn_input = np.random.uniform(0, 0.5, size=[2000, in_units])
 
 # list_weights_sd = np.exp(np.concatenate((logs_beforeEOC, logs_afterEOC)))
 
-logs = np.linspace(-1.39,0.7,100)
+logs = np.linspace(-1.39,0,100)
 list_weights_sd = np.exp(logs)
 
 len(list_weights_sd)
@@ -38,7 +38,7 @@ len(list_weights_sd)
 
 #%%___________________________ITERATIONS_________________________________________
 
-TE_AIS = pd.DataFrame(columns=['Reservoir_Size', 'Leak_Rate', 'Weights_SD', \
+TE = pd.DataFrame(columns=['Reservoir_Size', 'Leak_Rate', 'Weights_SD', \
                            'Lyapunov_Exponent', 'Nof_Samples_(%)', 'TE', 'Nonzero_Connections', 'AIS'])
 
 te_results = {}
@@ -66,12 +66,12 @@ for res_size in res_units:
             
             _, te, nonzero = esn.transfer_entropy(res_states=reservoir_states)
             
-            _, ais = esn.active_info_storage(res_states=reservoir_states)
+            #_, ais = esn.active_info_storage(res_states=reservoir_states)
 
-            TE_AIS.loc[n] = [res_size, alpha, sd, LE, perc_nof_samples, te, nonzero, ais]
+            TE.loc[n] = [res_size, alpha, sd, LE, perc_nof_samples, te, nonzero]
             
-            with open('TE_AIS.pickle', 'wb') as f:
-                pickle.dump(TE_AIS, f)  
+            with open('TE.pickle', 'wb') as f:
+                pickle.dump(TE, f)  
             
             print('\n \033[1m Computation for n = ',n ,' completed in: ', (time.time()-s),' \033[0m \n\n\n')
             
