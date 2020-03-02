@@ -266,7 +266,7 @@ class ESN():
         
         # Settings for MultivariateTE() computation
         settings = {'cmi_estimator': 'JidtKraskovCMI',
-                    'max_lag_sources': 2,
+                    'max_lag_sources': 3,
                     'min_lag_sources': 1,
                     'n_perm_max_stat': 200,
                     'n_perm_min_stat': 200,
