@@ -112,7 +112,7 @@ class esn:
             assert False #End program after diagram is shown
 
     def calc_lyapunov(self):
-        return self.esn.lyapunov_exponent(inputs = self.input_pre, init_state = np.zeros((1,self.ESN_arch[1])))[0]
+        return self.esn.lyapunov_exponent(inputs = self.input_pre, compute_res_states = True, init_state = np.zeros((1,self.ESN_arch[1])))[0]
 
     def get_spectral_radius(self):
         return self.esn.spectral_radius
