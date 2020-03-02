@@ -1,3 +1,9 @@
+'''
+Script for computing transfer entropy and active information storage for a random echo 
+state network. Evaluations can be made for several different values of reservoir sizes,
+leaks rates and standard deviations of the reservoir weights.
+
+'''
 import numpy as np
 import pandas as pd
 import time
